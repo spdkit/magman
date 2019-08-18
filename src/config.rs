@@ -9,9 +9,19 @@ use toml;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Config {
-    pub runfile_sp: String,
-    pub runfile_opt: String,
-    pub molfile: String,
+    /// VASP template directory for calculations of different spin-orderings.
+    pub vasp_job_dir: std::path::PathBuf,
+
+    /// Number of magnetic atoms, such as Fe, Co, Ni, ...
+    pub num_magnetic_atoms: usize,
+
+    /// Initial value of MAGMOM for magnetic atom.
+    pub ini_magmom_value: f64,
+
+    /// The placeholder string in INCAR to be replaced by each spin-ordering.
+    pub placeholder_text: String,
+
+    /// Genetic search parameters.
     pub search: Search,
 }
 
@@ -26,9 +36,10 @@ pub struct Search {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            runfile_sp: "/share/apps/mopac/sp".into(),
-            runfile_opt: "/share/apps/mopac/opt".into(),
-            molfile: "test.mol2".into(),
+            vasp_job_dir: "template".into(),
+            num_magnetic_atoms: 5,
+            ini_magmom_value: 5.0,
+            placeholder_text: "XXXXX".into(),
             search: Search {
                 population_size: 10,
                 max_generations: 10,

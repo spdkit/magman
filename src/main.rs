@@ -34,7 +34,7 @@ fn main() -> CliResult {
         let toml_str = read_file(f)?;
         let config: magman::Config = toml::from_str(&toml_str)?;
 
-        magman::search();
+        magman::genetic_search(&config);
     }
 
     Ok(())
