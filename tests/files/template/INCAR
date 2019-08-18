@@ -1,0 +1,56 @@
+  SYSTEM = fe2o3 cell
+
+# Startparameter for this run:
+  PREC   =    Accurate   
+  ISPIN  =      2
+  MAGMOM =  xxxxx 18*0.0 
+  ENCUT  =    500    
+
+# Electronic Relaxation
+  EDIFF  =  1E-05    # 7.14 # stopping-criterion for ELM
+  LREAL  =  Auto     # 7.34 # real-space projection : .FALSE. for systems < 20 atoms
+  IALGO  =     48    # 7.38 # algorithm : use 48 for large systems, 8 otherwise
+  ISTART = 0
+  ICHARG = 2
+  NELMIN =  5    # 7.13 # require at least 5 electronic iterations per ionic step
+  #LREAL=.FALSE.
+  #RWIGS  = 1.746 1.323 0.900   
+  #NPAR=1
+  LASPH = .TRUE.
+
+# Ionic relaxation
+  EDIFFG =   -1E-02 # 7.16 # convergence criterion for ions; positive = max energy change
+  NSW    =    0    # 7.17 # number of steps for IOM
+  IBRION =     2    # 7.19 # ionic relax: 0-MD 1-quasi-New 2-CG
+  ISIF   =     3    # 7.21 # stress and relaxation: 2=const.Cell;3=Vol&Cell-relax;4=const.Vol&Cell.adjust
+  #ISMEAR =     -5
+  #SIGMA  =    0.1
+
+  LDAU = .TRUE.
+  LDAUTYPE = 2
+ LMAXMIX = 4  !6 for f, 4 for d
+  LDAUL =    2   -1
+  LDAUU =    4    0
+  LDAUJ =    0    0   
+#HSE06
+ # LHFCALC = .TRUE.  
+ # HFSCREEN = 0.207 
+  #ALGO = Damped
+   #TIME = 0.2
+  #PRECFOCK= N
+   #AEXX = 0.25
+   #NELM = 250
+  #ENCUTFOCK = 0
+  #NKRED = 2
+
+#d-electron
+ LMAXMIX = 4
+
+
+# DOS
+  NEDOS = 3000
+  EMIN = -30.0
+  EMAX = 30.0
+  #NBANDS = 100 
+  LORBIT = 11       !to calculate TDOS and PDOS of each atom   
+  NWRITE = 0                                                                                           

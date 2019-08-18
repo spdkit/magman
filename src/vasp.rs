@@ -2,7 +2,7 @@
 
 // [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*imports][imports:1]]
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::common::*;
 use crate::MAG_DB_CONNECTION;
@@ -10,21 +10,36 @@ use crate::MAG_DB_CONNECTION;
 use gosh_db::prelude::*;
 // imports:1 ends here
 
-// csv
+lazy_static! {
+    static ref CSV_DATA: HashMap<String, Record> = {
+        let filename = "tests/files/results.csv";
+        read_data(filename).expect("magresult")
+    };
+}
 
-// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*csv][csv:1]]
+// for test
+pub struct CsvEvaluator;
+impl crate::magmom::EvaluateMagneticState for CsvEvaluator {
+    fn evaluate_new(&self, so: &[bool]) -> Result<crate::magmom::MagneticState> {
+        let key = crate::magmom::binary_key(so);
+        let ms = if let Some(record) = &CSV_DATA.get(&key) {
+            let energy = record.energy;
+            info!("item {:} energy = {:-18.6}", key, energy);
+            crate::magmom::MagneticState::new(so, energy)
+        } else {
+            bail!("Record not found: {}", crate::magmom::binary_key(so))
+        };
+
+        Ok(ms)
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct Record {
     directory: String,
     energy: f64,
     seqs: String,
     net_mag: usize,
-}
-
-impl Collection for Record {
-    fn collection_name() -> String {
-        "magmom".into()
-    }
 }
 
 // read data records from an external csv file
@@ -46,35 +61,129 @@ fn test_read_data() {
     let filename = "tests/files/results.csv";
     let x = read_data(filename).expect("magresult");
 }
-// csv:1 ends here
 
 // calculate
 
 // [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*calculate][calculate:1]]
-lazy_static! {
-    static ref DATA: HashMap<String, Record> = {
-        let filename = "tests/files/results.csv";
-        read_data(filename).expect("magresult")
-    };
+/// VASP related data
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+pub struct Vasp {
+    /// Command line for running VASP job.
+    cmdline: String,
+
+    /// Initial value of MAGMOM for magnetic atom.
+    initial_magmom_value: f64,
+
+    /// VASP template directory for calculations of different spin-orderings.
+    template_directory: PathBuf,
+
+    /// Working directory for all VASP calculations.
+    working_directory: PathBuf,
+
+    /// The placeholder string in INCAR to be replaced by each spin-ordering.
+    placeholder_text: String,
 }
 
-impl crate::MagneticState {
-    fn prepare_vasp_inputs(&self, config: &crate::Config) -> Result<()> {
+/// VASP Evaluator
+impl crate::magmom::EvaluateMagneticState for Vasp {
+    fn evaluate_new(&self, so: &[bool]) -> Result<crate::magmom::MagneticState> {
+        let energy = self.calculate_new(so)?;
+        let ms = crate::magmom::MagneticState::new(so, energy);
+        Ok(ms)
+    }
+}
+
+impl Default for Vasp {
+    fn default() -> Self {
+        Self {
+            cmdline: "run-vasp.sh".into(),
+            template_directory: "template".into(),
+            initial_magmom_value: 5.0,
+            working_directory: "jobs".into(),
+            placeholder_text: "XXXXX".into(),
+        }
+    }
+}
+
+impl Vasp {
+    /// Call VASP to calculate energy with spin-ordering of `so`.
+    pub(crate) fn calculate_new(&self, so: &[bool]) -> Result<f64> {
+        use std::process::Command;
+
+        let adir = self.job_directory(so);
+        if !self.already_done(&adir) {
+            debug!("calculating new job {}, ", adir.display());
+            self.prepare_vasp_inputs(so)?;
+            let _ = Command::new(&self.cmdline).current_dir(&adir).output()?;
+        }
+
+        let oszicar = adir.join("OSZICAR");
+        let energy = get_energy_from_oszicar(oszicar)?;
+        println!("job {}, energy = {}", adir.display(), energy);
+        Ok(energy)
+    }
+
+    /// Inspecting VASP files in disk.
+    fn already_done(&self, wdir: &Path) -> bool {
+        let incar = wdir.join("INCAR");
+        let oszicar = wdir.join("OSZICAR");
+
+        if wdir.is_dir() {
+            if incar.is_file() && oszicar.is_file() {
+                debug!("Inspecting disk files in {}", wdir.display());
+                if let Ok(time2) = oszicar.metadata().and_then(|m| m.modified()) {
+                    if let Ok(time1) = incar.metadata().and_then(|m| m.modified()) {
+                        if time2 >= time1 {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        false
+    }
+
+    /// Initial magnetic moment value without considering of spin ordering.
+    fn format_as_vasp_tag(&self, so: &[bool]) -> String {
+        let ss: Vec<_> = so
+            .iter()
+            .map(|&spin_up| {
+                let v = if spin_up { 1.0 } else { -1.0 } * self.initial_magmom_value;
+                format!("{:4.1}", v)
+            })
+            .collect();
+        ss.join(" ")
+    }
+
+    /// VASP job directory in spin-ordering `so`.
+    fn job_directory(&self, so: &[bool]) -> PathBuf {
+        self.working_directory.join(&crate::magmom::binary_key(so))
+    }
+
+    /// Prepare VASP input files in working directory.
+    fn prepare_vasp_inputs(&self, so: &[bool]) -> Result<()> {
         use std::fs::File;
         use std::io::{BufRead, BufReader};
 
-        let incar = config.vasp_job_dir.join("INCAR");
-        let tag = config.placeholder_text.to_uppercase();
+        let incar = &self.template_directory.join("INCAR");
+        let tag = self.placeholder_text.to_uppercase();
 
         // replace MAGMOM tag
         let mut new_lines = vec![];
         let mut replaced = false;
-        for line in BufReader::new(File::open(incar)?).lines() {
+        for line in BufReader::new(
+            File::open(incar)
+                .with_context(|_| format!("Failed to open VASP INCAR: {}", incar.display()))?,
+        )
+        .lines()
+        {
             let mut line = line?;
             let line_up = line.to_uppercase();
             if line_up.contains("MAGMOM") {
                 if line_up.contains(&tag) {
-                    line = line_up.replace(&tag, &self.format_as_vasp_tag(config.ini_magmom_value));
+                    let new_tag = self.format_as_vasp_tag(so);
+                    line = line_up.replace(&tag, &new_tag);
                     replaced = true;
                 }
             }
@@ -89,24 +198,34 @@ impl crate::MagneticState {
         }
 
         // prepare vasp input files
-        let poscar = config.vasp_job_dir.join("POSCAR");
-        let potcar = config.vasp_job_dir.join("POTCAR");
-        let kpoints = config.vasp_job_dir.join("KPOINTS");
+        let poscar = self.template_directory.join("POSCAR");
+        let potcar = self.template_directory.join("POTCAR");
+        let kpoints = self.template_directory.join("KPOINTS");
 
-        let adir: std::path::PathBuf = format!("jobs/{}", self.binary_key()).into();
-        let new_incar = adir.join("INCAR");
-        let new_poscar = adir.join("POSCAR");
-        let new_potcar = adir.join("POTCAR");
-        let new_kpoints = adir.join("KPOINTS");
-        quicli::fs::write_to_file(new_incar, &new_lines.join("\n"))?;
+        let adir = self.job_directory(so);
+        std::fs::create_dir_all(&adir).with_context(|_| {
+            format!(
+                "Failed to create VASP working directory: {}",
+                adir.display()
+            )
+        })?;
 
-        // use linux hard link to reduce disk usage
+        let new_incar = &adir.join("INCAR");
+        let new_poscar = &adir.join("POSCAR");
+        let new_potcar = &adir.join("POTCAR");
+        let new_kpoints = &adir.join("KPOINTS");
+        quicli::fs::write_to_file(new_incar, &new_lines.join("\n"))
+            .with_context(|_| format!("Failed to write new INCAR file: {}", new_incar.display()))?;
+
+        // use linux symbolic link to reduce disk usage
         fn link_file(src_file: &Path, dst_file: &Path) -> Result<()> {
             use std::os::unix::fs::symlink;
 
             if dst_file.exists() {
                 std::fs::remove_file(dst_file)?;
             }
+            // avoid relative path problem.
+            let src_file = src_file.canonicalize()?;
             symlink(src_file, dst_file)?;
 
             Ok(())
@@ -117,61 +236,6 @@ impl crate::MagneticState {
 
         Ok(())
     }
-
-    /// Read in VASP calulcated energy from OSZICAR file.
-    fn read_energy_from_oszicar(&mut self) -> Result<()> {
-        let file = format!("jobs/{}", self.binary_key());
-        let en = get_energy_from_oszicar(file)?;
-        self.energy = Some(en);
-
-        Ok(())
-    }
-
-    // FIXME: just for test
-    pub(crate) fn calculate_new(&mut self) -> Result<()> {
-        let key = self.binary_key();
-
-        // self.prepare_vasp_inputs()?;
-        // self.submit_vasp()?;
-        // self.read_energy_from_oszicar()?;
-
-        let energy = DATA[&key].energy;
-        info!("item {:} energy = {:-18.6}", key, energy);
-        self.energy = Some(energy);
-
-        Ok(())
-    }
-
-    /// Return VASP calulcated energy. If no calculated energy, this function
-    /// will submit VASP job.
-    pub fn get_energy(&mut self) -> Result<f64> {
-        let key = self.binary_key();
-
-        let energy = match Self::get_from_collection(&MAG_DB_CONNECTION, &key) {
-            Ok(ms) => ms.energy,
-            Err(e) => {
-                // FIXME: handle not-found error
-                self.calculate_new()?;
-                self.put_into_collection(&MAG_DB_CONNECTION, &key)?;
-                self.energy
-            }
-        };
-
-        if let Some(e) = energy {
-            Ok(e)
-        } else {
-            bail!("no calculated energy!");
-        }
-    }
-}
-
-#[test]
-fn test_vasp_calculate() -> Result<()> {
-    let config = &crate::Config::default();
-    let so = vec![true, true, false, false];
-    let magmom = crate::MagneticState::new(&so);
-    // calculate_vasp_energy(config, &magmom)?;
-    Ok(())
 }
 
 /// Get energy from vasp OSZICAR file.
@@ -191,13 +255,41 @@ fn get_energy_from_oszicar<P: AsRef<Path>>(path: P) -> Result<f64> {
     }
     bail!("Failed to get energy from: {}", oszicar.display());
 }
+// calculate:1 ends here
 
+// test
+
+// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*test][test:1]]
 #[test]
-fn test_get_energy_oszicar() -> Result<()> {
-    let fname = "tests/files/OSZICAR";
-    let e = get_energy_from_oszicar(fname)?;
-    assert_eq!(e, -155.19407);
+fn test_get_vasp_energy() -> Result<()> {
+    let adir: std::path::PathBuf = "tests/files/jobs/100100001001".into();
+    let vasp = Vasp::default();
+    assert!(vasp.already_done(&adir));
+
+    let oszicar = adir.join("OSZICAR");
+    let e = get_energy_from_oszicar(&oszicar)?;
+    assert_eq!(e, -204.12640);
 
     Ok(())
 }
-// calculate:1 ends here
+
+#[test]
+fn test_vasp_calculate() -> Result<()> {
+    use duct::cmd;
+
+    // setup temp directory
+    let dir = tempfile::tempdir()?;
+
+    let mut vasp = Vasp::default();
+    vasp.working_directory = dir.path().join("jobs");
+    vasp.template_directory = "tests/files/template".into();
+
+    let so = vec![true, true, false, false];
+    vasp.prepare_vasp_inputs(&so)?;
+
+    let x = cmd!("ls", "-Rl", dir.path()).read()?;
+    print!("{}", x);
+
+    Ok(())
+}
+// test:1 ends here

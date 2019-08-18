@@ -1,25 +1,28 @@
-// config.rs
-// :PROPERTIES:
-// :header-args: :tangle src/config.rs
-// :END:
+// imports
 
-// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*config.rs][config.rs:1]]
+// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*imports][imports:1]]
 use serde::*;
 use toml;
 
+lazy_static! {
+    /// Global settings.
+    pub static ref MAGMAN_CONFIG: Config = {
+        let config_file = format!("{}.conf", env!("CARGO_PKG_NAME"));
+        println!("configfile {}", config_file);
+
+        let toml_str = quicli::fs::read_file(config_file).expect("Failed to read config file!");
+        toml::from_str(&toml_str).expect("Failed to parse toml config!")
+    };
+}
+// imports:1 ends here
+
+// base
+
+// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*base][base:1]]
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Config {
-    /// VASP template directory for calculations of different spin-orderings.
-    pub vasp_job_dir: std::path::PathBuf,
-
-    /// Number of magnetic atoms, such as Fe, Co, Ni, ...
-    pub num_magnetic_atoms: usize,
-
-    /// Initial value of MAGMOM for magnetic atom.
-    pub ini_magmom_value: f64,
-
-    /// The placeholder string in INCAR to be replaced by each spin-ordering.
-    pub placeholder_text: String,
+    /// VASP related parameters.
+    pub vasp: crate::vasp::Vasp,
 
     /// Genetic search parameters.
     pub search: Search,
@@ -36,10 +39,7 @@ pub struct Search {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            vasp_job_dir: "template".into(),
-            num_magnetic_atoms: 5,
-            ini_magmom_value: 5.0,
-            placeholder_text: "XXXXX".into(),
+            vasp: crate::vasp::Vasp::default(),
             search: Search {
                 population_size: 10,
                 max_generations: 10,
@@ -56,4 +56,4 @@ impl Config {
         println!("{:}", x);
     }
 }
-// config.rs:1 ends here
+// base:1 ends here

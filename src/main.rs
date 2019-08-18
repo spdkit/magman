@@ -1,6 +1,9 @@
-// main
+// main.rs
+// :PROPERTIES:
+// :header-args: :tangle src/main.rs
+// :END:
 
-// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*main][main:1]]
+// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*main.rs][main.rs:1]]
 use quicli::prelude::*;
 use structopt::*;
 
@@ -14,9 +17,9 @@ struct Cli {
     #[structopt(long = "print", short = "p")]
     print: bool,
 
-    /// Path to configuration file of magman.
-    #[structopt(parse(from_os_str), short = "c")]
-    configfile: Option<std::path::PathBuf>,
+    /// Run genetic search.
+    #[structopt(long = "run", short = "r")]
+    run: bool,
 }
 
 fn main() -> CliResult {
@@ -29,14 +32,12 @@ fn main() -> CliResult {
         return Ok(());
     }
 
-    if let Some(f) = &args.configfile {
-        println!("use configfile {}", f.display());
-        let toml_str = read_file(f)?;
-        let config: magman::Config = toml::from_str(&toml_str)?;
-
-        magman::genetic_search(&config);
+    if args.run {
+        magman::genetic_search();
+    } else {
+        Cli::clap().print_help()?;
     }
 
     Ok(())
 }
-// main:1 ends here
+// main.rs:1 ends here

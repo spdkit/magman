@@ -15,33 +15,6 @@ use genevo::prelude::*;
 // [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*genevo][genevo:1]]
 type MagGenome = Vec<bool>;
 
-#[derive(Clone, Debug, PartialEq)]
-struct MagFitnessEvaluator;
-
-impl FitnessFunction<MagGenome, u32> for MagFitnessEvaluator {
-    fn fitness_of(&self, individual: &MagGenome) -> u32 {
-        // with the first bit fixed as spin-up.
-        let mut so = individual.clone();
-        so.insert(0, true);
-
-        let mut ms = crate::MagneticState::new(&so);
-        let energy = ms.get_energy().unwrap();
-        calc_fitness(energy)
-    }
-
-    fn average(&self, fitness_values: &[u32]) -> u32 {
-        (fitness_values.iter().sum::<u32>() / fitness_values.len() as u32)
-    }
-
-    fn highest_possible_fitness(&self) -> u32 {
-        1000
-    }
-
-    fn lowest_possible_fitness(&self) -> u32 {
-        0
-    }
-}
-
 fn create_population(n: usize) -> Population<MagGenome> {
     build_population()
         .with_genome_builder(BinaryEncodedGenomeBuilder::new(11))
@@ -49,25 +22,23 @@ fn create_population(n: usize) -> Population<MagGenome> {
         .uniform_at_random()
 }
 
-pub fn genetic_search(config: &crate::Config) {
-    let initial_population = create_population(config.search.population_size);
+pub fn genetic_search() {
+    let config = &crate::config::MAGMAN_CONFIG.search;
+
+    let initial_population = create_population(config.population_size);
     println!("{:?}", initial_population);
 
     let algorithm = genetic_algorithm()
         .with_evaluation(MagFitnessEvaluator)
         .with_selection(RouletteWheelSelector::new(0.7, 2))
         .with_crossover(MultiPointCrossBreeder::new(3))
-        .with_mutation(RandomValueMutator::new(
-            config.search.mutation_rate,
-            false,
-            true,
-        ))
+        .with_mutation(RandomValueMutator::new(config.mutation_rate, false, true))
         .with_reinsertion(ElitistReinserter::new(MagFitnessEvaluator, false, 0.7))
         .with_initial_population(initial_population)
         .build();
 
     let mut magcalc_sim = simulate(algorithm)
-        .until(GenerationLimit::new(config.search.max_generations))
+        .until(GenerationLimit::new(config.max_generations))
         .build();
 
     loop {
@@ -110,6 +81,39 @@ pub fn genetic_search(config: &crate::Config) {
 // fitness
 
 // [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*fitness][fitness:1]]
+#[derive(Clone, Debug, PartialEq)]
+struct MagFitnessEvaluator;
+
+impl FitnessFunction<MagGenome, u32> for MagFitnessEvaluator {
+    fn fitness_of(&self, individual: &MagGenome) -> u32 {
+        use crate::magmom::*;
+
+        // with the first bit fixed as spin-up.
+        let mut so = individual.clone();
+        so.insert(0, true);
+
+        // NOTE: use data in csv table for tests
+        // let csv = crate::vasp::CsvEvaluator {};
+        // let ms = csv.evaluate(&so).expect("indv eval");
+
+        let vasp = &crate::config::MAGMAN_CONFIG.vasp;
+        let ms = vasp.evaluate(&so).expect("inv eval");
+        calc_fitness(ms.energy)
+    }
+
+    fn average(&self, fitness_values: &[u32]) -> u32 {
+        (fitness_values.iter().sum::<u32>() / fitness_values.len() as u32)
+    }
+
+    fn highest_possible_fitness(&self) -> u32 {
+        1000
+    }
+
+    fn lowest_possible_fitness(&self) -> u32 {
+        0
+    }
+}
+
 fn calc_fitness(energy: f64) -> u32 {
     let temperature = 8000.;
     let eref = -205.40;
