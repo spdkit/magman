@@ -123,6 +123,40 @@ impl Vasp {
         Ok(energy)
     }
 
+    pub(crate) fn collect_results(&self) -> Result<Vec<crate::magmom::MagneticState>> {
+        let dir = &self.working_directory;
+        let mut list = vec![];
+        if dir.is_dir() {
+            for entry in std::fs::read_dir(dir)? {
+                let entry = entry?;
+                let path = entry.path();
+                if path.is_dir() {
+                    let key = path.file_name().unwrap().to_str().unwrap();
+                    let oszicar = path.join("OSZICAR");
+                    match get_energy_from_oszicar(oszicar) {
+                        Ok(energy) => {
+                            println!("job {}, energy = {}", key, energy);
+                            let so: Vec<bool> = key
+                                .chars()
+                                .map(|b| match b {
+                                    '1' => true,
+                                    '0' => false,
+                                    _ => panic!("bad key: {}", key),
+                                })
+                                .collect();
+                            list.push(crate::magmom::MagneticState::new(&so, energy));
+                        }
+                        Err(e) => {
+                            error!("{}", e);
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(list)
+    }
+
     /// Inspecting VASP files in disk.
     fn already_done(&self, wdir: &Path) -> bool {
         let incar = wdir.join("INCAR");
@@ -244,7 +278,13 @@ fn get_energy_from_oszicar<P: AsRef<Path>>(path: P) -> Result<f64> {
     use std::io::{BufRead, BufReader};
 
     let oszicar = path.as_ref();
-    if let Some(line) = BufReader::new(File::open(oszicar)?).lines().last() {
+    if let Some(line) = BufReader::new(
+        File::open(oszicar)
+            .with_context(|_| format!("Failed to open OSZICAR file: {}", oszicar.display()))?,
+    )
+    .lines()
+    .last()
+    {
         let line = line?;
         if let Some(p) = line.find("E0=") {
             if let Some(s) = line[p + 3..].split_whitespace().next() {

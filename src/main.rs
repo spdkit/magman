@@ -4,6 +4,8 @@
 // :END:
 
 // [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*main.rs][main.rs:1]]
+use std::path::PathBuf;
+
 use quicli::prelude::*;
 use structopt::*;
 
@@ -20,6 +22,10 @@ struct Cli {
     /// List calculated items in database.
     #[structopt(long = "list", short = "l")]
     list: bool,
+
+    /// Collect data from files completed jobs.
+    #[structopt(long = "collect", short = "c", parse(from_os_str))]
+    collect: Option<PathBuf>,
 
     /// Run genetic search.
     #[structopt(long = "run", short = "r")]
@@ -42,6 +48,8 @@ fn main() -> CliResult {
         // setup a pager like `less` cmd
         pager::Pager::with_pager("less").setup();
         magman::list_db()?;
+    } else if let Some(dir) = args.collect {
+        magman::collect_results_from_dir(&dir)?;
     } else {
         Cli::clap().print_help()?;
     }

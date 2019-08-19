@@ -46,6 +46,15 @@ impl MagneticState {
             energy,
         }
     }
+
+    /// Save into default database.
+    pub fn save(&self) -> Result<()> {
+        let key = binary_key(&self.spin_ordering);
+        info!("saving data with key {}", key);
+        self.put_into_collection(&MAG_DB_CONNECTION, &key)?;
+
+        Ok(())
+    }
 }
 
 /// Return binary encoded key of a spin-ordering.
