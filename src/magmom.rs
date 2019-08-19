@@ -56,4 +56,43 @@ pub fn binary_key(so: &[bool]) -> String {
         .collect();
     ss
 }
+
+impl MagneticState {
+    pub fn list_db() -> Result<()> {
+        let mut items = Self::list_collection(&MAG_DB_CONNECTION)?;
+        if items.is_empty() {
+            error!("No items in db.");
+        } else {
+            println!("Found {} items.", items.len());
+            println!(
+                "{:^width$} => {:^12}",
+                "key",
+                "energy",
+                width = items[0].spin_ordering.len()
+            );
+
+            items.sort_by(|a, b| {
+                a.energy
+                    .partial_cmp(&b.energy)
+                    .unwrap_or(std::cmp::Ordering::Less)
+            });
+            for ms in items {
+                let key = binary_key(&ms.spin_ordering);
+                println!("{} => {:<-12.4}", key, ms.energy);
+            }
+        }
+        Ok(())
+    }
+}
 // core:1 ends here
+
+// test
+
+// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*test][test:1]]
+#[test]
+fn test_list_db() -> Result<()> {
+    MagneticState::list_db()?;
+
+    Ok(())
+}
+// test:1 ends here

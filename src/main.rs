@@ -17,6 +17,10 @@ struct Cli {
     #[structopt(long = "print", short = "p")]
     print: bool,
 
+    /// List calculated items in database.
+    #[structopt(long = "list", short = "l")]
+    list: bool,
+
     /// Run genetic search.
     #[structopt(long = "run", short = "r")]
     run: bool,
@@ -34,6 +38,10 @@ fn main() -> CliResult {
 
     if args.run {
         magman::genetic_search();
+    } else if args.list {
+        // setup a pager like `less` cmd
+        pager::Pager::with_pager("less").setup();
+        magman::list_db()?;
     } else {
         Cli::clap().print_help()?;
     }

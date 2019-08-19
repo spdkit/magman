@@ -15,9 +15,9 @@ extern crate lazy_static;
 
 // [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*mods][mods:1]]
 mod config;
+mod magmom;
 mod search;
 mod vasp;
-mod magmom;
 
 pub use config::*;
 pub use search::*;
@@ -25,6 +25,13 @@ pub use search::*;
 pub(crate) mod common {
     pub use quicli::prelude::*;
     pub type Result<T> = ::std::result::Result<T, Error>;
+}
+
+use crate::common::*;
+pub fn list_db() -> Result<()> {
+    magmom::MagneticState::list_db()?;
+
+    Ok(())
 }
 // mods:1 ends here
 
