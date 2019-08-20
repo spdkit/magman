@@ -55,6 +55,10 @@ impl MagneticState {
 
         Ok(())
     }
+
+    pub fn binary_key(&self) -> String {
+        binary_key(&self.spin_ordering)
+    }
 }
 
 /// Return binary encoded key of a spin-ordering.
@@ -86,7 +90,7 @@ impl MagneticState {
                     .unwrap_or(std::cmp::Ordering::Less)
             });
             for ms in items {
-                let key = binary_key(&ms.spin_ordering);
+                let key = ms.binary_key();
                 println!("{} => {:<-12.4}", key, ms.energy);
             }
         }
