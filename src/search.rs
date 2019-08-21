@@ -13,8 +13,16 @@ use genevo::prelude::*;
 // genevo
 
 // [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*genevo][genevo:1]]
+use std::collections::HashMap;
+use std::sync::Mutex;
+
+lazy_static! {
+    static ref EVALUATED: Mutex<HashMap<String, f64>> = Mutex::new(HashMap::new());
+}
+
 type MagGenome = Vec<bool>;
 
+/// TODO: with contrain of zero net-spin
 fn create_population(n: usize) -> Population<MagGenome> {
     build_population()
         .with_genome_builder(BinaryEncodedGenomeBuilder::new(11))
@@ -35,13 +43,16 @@ fn evaluate_individual(indv: &MagGenome) -> Result<f64> {
 
     let vasp = &crate::config::MAGMAN_CONFIG.vasp;
     let ms = vasp.evaluate(&so)?;
+    let mut map = EVALUATED.lock().unwrap();
+    let key = crate::magmom::binary_key(&so);
+    map.insert(key, ms.energy);
 
     Ok(ms.energy)
 }
 
 // summary population of each step
 macro_rules! summary_results {
-    ($step:ident) => {
+    ($step:expr) => {{
         let evaluated_population = $step.result.evaluated_population;
         let best_solution = $step.result.best_solution;
         let energy = evaluate_individual(&best_solution.solution.genome).expect("evaluated energy");
@@ -60,7 +71,9 @@ macro_rules! summary_results {
             evaluated_population.average_fitness()
         );
         debug!("best fitness: {}", best_solution.solution.fitness);
-    };
+
+        energy
+    }};
 }
 
 pub fn genetic_search() -> Result<()> {
@@ -83,16 +96,14 @@ pub fn genetic_search() -> Result<()> {
     }
     info!("Reference energy for fitness evaluation is: {}", eref);
 
+    let mut feval1 = MagFitnessEvaluator::new(eref);
+    let mut feval2 = MagFitnessEvaluator::new(eref);
     let algorithm = genetic_algorithm()
-        .with_evaluation(MagFitnessEvaluator(eref))
-        .with_selection(RouletteWheelSelector::new(0.7, 2))
+        .with_evaluation(feval1)
+        .with_selection(RouletteWheelSelector::new(0.9, 2))
         .with_crossover(MultiPointCrossBreeder::new(3))
         .with_mutation(RandomValueMutator::new(config.mutation_rate, false, true))
-        .with_reinsertion(ElitistReinserter::new(
-            MagFitnessEvaluator(eref),
-            false,
-            0.7,
-        ))
+        .with_reinsertion(MagReinsert::new(feval2))
         .with_initial_population(initial_population)
         .build();
 
@@ -104,7 +115,14 @@ pub fn genetic_search() -> Result<()> {
         let result = magman_sim.step();
         match result {
             Ok(SimResult::Intermediate(step)) => {
-                summary_results!(step);
+                let energy = summary_results!(step);
+
+                if let Some(target_energy) = config.target_energy {
+                    if energy < target_energy {
+                        println!("target energy {} reached.", target_energy);
+                        break;
+                    }
+                }
             }
             Ok(SimResult::Final(step, _processing_time, _duration, stop_reason)) => {
                 summary_results!(step);
@@ -119,29 +137,88 @@ pub fn genetic_search() -> Result<()> {
         }
     }
 
+    let map = EVALUATED.lock().unwrap();
+    println!("Explored {} combinations.", map.len());
+
     Ok(())
 }
 // genevo:1 ends here
+
+// reinsert
+
+// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*reinsert][reinsert:1]]
+use genevo::algorithm::EvaluatedPopulation;
+use genevo::genetic::Offspring;
+use genevo::operator::GeneticOperator;
+use genevo::operator::ReinsertionOp;
+use genevo::prelude::*;
+
+#[derive(Clone, Debug, PartialEq)]
+struct MagReinsert {
+    feval: MagFitnessEvaluator,
+}
+
+impl MagReinsert {
+    fn new(feval: MagFitnessEvaluator) -> Self {
+        Self { feval }
+    }
+}
+
+impl ReinsertionOp<MagGenome, u32> for MagReinsert {
+    fn combine<R: Rng + Sized>(
+        &self,
+        new_individuals: &mut Offspring<MagGenome>,
+        old_population: &EvaluatedPopulation<MagGenome, u32>,
+        rng: &mut R,
+    ) -> Vec<MagGenome> {
+        // combine all available individuals into one.
+        let old_individuals = old_population.individuals();
+        new_individuals.extend_from_slice(&old_individuals);
+        info!("{} indvs before combining ...", new_individuals.len());
+
+        // remove redundant individuals.
+        new_individuals.sort();
+        new_individuals.dedup();
+        info!("{} indvs after removing redundants.", new_individuals.len());
+
+        new_individuals.sort_by_cached_key(|indv| self.feval.fitness_of(&indv));
+
+        // remove n bad performing indvs to fit the population size constrain.
+        let n = new_individuals.len() - old_individuals.len();
+
+        debug!("Will remove {} indvs.", n);
+        new_individuals.drain(n..).collect()
+    }
+}
+
+impl GeneticOperator for MagReinsert {
+    fn name() -> String {
+        "Magman-Reinserter".to_string()
+    }
+}
+// reinsert:1 ends here
 
 // fitness
 
 // [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*fitness][fitness:1]]
 #[derive(Clone, Debug, PartialEq)]
-struct MagFitnessEvaluator(f64);
+struct MagFitnessEvaluator {
+    eref: f64,
+}
+
+impl MagFitnessEvaluator {
+    fn new(eref: f64) -> Self {
+        Self { eref }
+    }
+}
 
 const FITNESS_MAX: u32 = 1_000_000;
 
 impl FitnessFunction<MagGenome, u32> for MagFitnessEvaluator {
     fn fitness_of(&self, individual: &MagGenome) -> u32 {
+        let key = crate::magmom::binary_key(individual);
         let energy = evaluate_individual(&individual).expect("inv eval");
-        debug!(
-            "energy of spin-ordering {} = {}",
-            crate::magmom::binary_key(&individual),
-            energy
-        );
-
-        let eref = self.0;
-        calc_fitness(energy, eref)
+        calc_fitness(energy, self.eref)
     }
 
     fn average(&self, fitness_values: &[u32]) -> u32 {
