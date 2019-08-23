@@ -46,7 +46,7 @@ impl Default for Config {
                 max_generations: 10,
                 target_energy: None,
                 mutation_rate: 0.1,
-                boltzmann_temperature: 30000.0,
+                boltzmann_temperature: 5000.0,
             },
         }
     }

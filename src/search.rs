@@ -96,12 +96,14 @@ pub fn genetic_search() -> Result<()> {
     }
     info!("Reference energy for fitness evaluation is: {}", eref);
 
-    let mut feval1 = MagFitnessEvaluator::new(eref);
-    let mut feval2 = MagFitnessEvaluator::new(eref);
+    let feval1 = MagFitnessEvaluator::new(eref);
+    let feval2 = MagFitnessEvaluator::new(eref);
     let algorithm = genetic_algorithm()
         .with_evaluation(feval1)
-        .with_selection(RouletteWheelSelector::new(0.9, 2))
-        .with_crossover(MultiPointCrossBreeder::new(3))
+        .with_selection(RouletteWheelSelector::new(0.9, 3))
+        // .with_selection(MagSelector::new(0.9, 3))
+        // .with_crossover(MultiPointCrossBreeder::new(3))
+        .with_crossover(MagCrossover::new())
         .with_mutation(RandomValueMutator::new(config.mutation_rate, false, true))
         .with_reinsertion(MagReinsert::new(feval2))
         .with_initial_population(initial_population)
@@ -197,6 +199,85 @@ impl GeneticOperator for MagReinsert {
     }
 }
 // reinsert:1 ends here
+
+// crossover
+
+// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*crossover][crossover:1]]
+use genevo::operator::CrossoverOp;
+
+#[derive(Clone, Debug, PartialEq)]
+struct MagCrossover {
+    //
+}
+
+impl GeneticOperator for MagCrossover {
+    fn name() -> String {
+        "Magman-Crossover".to_string()
+    }
+}
+
+impl MagCrossover {
+    fn new() -> Self {
+        Self {
+            // -
+        }
+    }
+}
+
+impl CrossoverOp<MagGenome> for MagCrossover {
+    fn crossover<R>(&self, parents: Vec<MagGenome>, rng: &mut R) -> Vec<MagGenome>
+    where
+        R: Rng + Sized,
+    {
+        debug!("breed new individuals using {} parents.", parents.len());
+        let mut evaluated_indvs: Vec<_> = parents
+            .iter()
+            .map(|indv| {
+                let energy = evaluate_individual(&indv).expect("x");
+                (indv, energy)
+            })
+            .collect();
+
+        // sort by energy from lowest to highest
+        evaluated_indvs
+            .sort_by(|(_, a), (_, b)| a.partial_cmp(&b).unwrap_or(std::cmp::Ordering::Less));
+
+        for (indv, energy) in evaluated_indvs.iter() {
+            let key = crate::magmom::binary_key(&indv);
+            debug!(">> {} = {}", key, energy);
+        }
+
+        let (parent0, _) = &evaluated_indvs[0];
+        let (parent1, _) = &evaluated_indvs[1];
+        let (parent2, _) = &evaluated_indvs[2];
+
+        let positions_swap: Vec<_> = parent0
+            .iter()
+            .zip(parent1.iter())
+            .enumerate()
+            .filter_map(|(i, (so1, so2))| if so1 == so2 { Some(i) } else { None })
+            .collect();
+
+        let mut child1 = parent1.to_vec();
+        let mut child2 = parent2.to_vec();
+        for i in positions_swap {
+            std::mem::swap(&mut child1[i], &mut child2[i]);
+        }
+
+        let children = vec![child1, child2];
+        for indv in children.iter() {
+            let key = crate::magmom::binary_key(&indv);
+            let energy = evaluate_individual(&indv).expect("x");
+            debug!("new child: {} = {}", key, energy);
+        }
+
+        // let breeder = MultiPointCrossBreeder::new(3);
+        // breeder.crossover(parents[0..2].to_vec(), rng)
+
+        children
+    }
+}
+// crossover:1 ends here
 
 // fitness
 

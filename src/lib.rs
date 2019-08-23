@@ -36,6 +36,12 @@ use crate::common::*;
 // global database connection
 lazy_static! {
     static ref MAG_DB_CONNECTION: gosh_db::DbConnection = {
+        let dbvar = "GOSH_DATABASE_URL";
+        let default_db = format!("{}.db", env!("CARGO_PKG_NAME"));
+        if std::env::var(dbvar).is_err() {
+            info!("Use default db file: {}", default_db);
+            std::env::set_var(dbvar, default_db);
+        }
         let db = gosh_db::DbConnection::establish().expect("gosh db");
         db
     };
