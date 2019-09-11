@@ -3,7 +3,7 @@
 # [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*cargo.toml][cargo.toml:1]]
 [package]
 name = "magman"
-version = "0.0.6"
+version = "0.0.7"
 edition = "2018"
 authors = ["Wenping Guo <ybyygu@gmail.com>"]
 
@@ -11,9 +11,9 @@ authors = ["Wenping Guo <ybyygu@gmail.com>"]
 gchemol = { git = "https://github.com/ybyygu/gchemol.git", tag="v0.0.34" }
 quicli = "0.4"
 structopt = "0.2"
-genevo = "0.4"
 # genevo = { git = "https://github.com/ybyygu/genevo.git" }
 gosh-db = {version = "*", path = "../../gosh-rs/database"}
+spdkit = {version = "*", path = "../spdkit"}
 rand = "0.7"
 csv = "1.1"
 serde = {version="1.0", features = ["derive"]}

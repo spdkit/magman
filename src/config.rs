@@ -30,11 +30,12 @@ pub struct Config {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Search {
-    pub max_generations: u64,
+    pub max_generations: usize,
     pub target_energy: Option<f64>,
     pub population_size: usize,
     pub boltzmann_temperature: f64,
     pub mutation_rate: f64,
+    pub genome_length: usize,
 }
 
 impl Default for Config {
@@ -45,6 +46,7 @@ impl Default for Config {
                 population_size: 10,
                 max_generations: 10,
                 target_energy: None,
+                genome_length: 12,
                 mutation_rate: 0.1,
                 boltzmann_temperature: 5000.0,
             },
