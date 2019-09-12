@@ -52,7 +52,8 @@ fn evaluate_magmom(indv: &MagGenome) -> Result<f64> {
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use spdkit::operators::selection::RouletteWheelSelection;
+use spdkit::operators::selection::StochasticUniversalSampling as SusSelection;
+use spdkit::operators::selection::TournamentSelection;
 use spdkit::operators::variation::TriadicCrossOver;
 
 lazy_static! {
@@ -69,7 +70,8 @@ pub fn genetic_search() -> Result<()> {
     // create a breeder for new individuals
     let breeder = spdkit::gears::breeder::GeneticBreeder::new()
         .with_crossover(TriadicCrossOver)
-        .with_selector(RouletteWheelSelection::new(3));
+        // .with_selector(TournamentSelection::new(3));
+        .with_selector(SusSelection::new(3));
 
     let temperature = config.boltzmann_temperature;
     let mut engine = Engine::new(initial_population)
@@ -78,6 +80,8 @@ pub fn genetic_search() -> Result<()> {
         .with_breeder(breeder);
 
     // FIXMEFIXMEFIXME
+    let mut best_so_far = std::f64::MAX;
+    let mut ichanges = 0;
     for g in engine.evolve().take(config.max_generations) {
         let generation = g?;
         generation.summary();
@@ -93,6 +97,36 @@ pub fn genetic_search() -> Result<()> {
                 println!("target energy {} reached.", target_energy);
                 break;
             }
+        }
+        if energy < best_so_far {
+            ichanges = 0;
+            best_so_far = energy;
+        } else {
+            ichanges += 1;
+        }
+
+        if ichanges > 20 {
+            println!("population evolved for 20 generations without changes. stop now.");
+            break;
+        }
+
+        // population convergence
+        let members: Vec<_> = generation.population.members().collect();
+        let mut pop_diversity = 0;
+        for p in members.windows(2) {
+            let (g0, g1) = (p[0].individual.genome(), p[1].individual.genome());
+
+            // sum over individual hamming distance.
+            let dsum = g0
+                .iter()
+                .zip(g1.iter())
+                .fold(0, |acc, (b0, b1)| acc + ((b0 != b1) as isize));
+            pop_diversity += dsum;
+        }
+        info!("population diversity degree = {}", pop_diversity);
+        if pop_diversity == 0 {
+            println!("population converged.");
+            break;
         }
     }
 
