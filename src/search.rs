@@ -18,7 +18,7 @@ type MagGenome = Binary;
 #[derive(Debug, Clone)]
 struct MagIndividual;
 
-impl EvaluateScore<MagGenome> for MagIndividual {
+impl EvaluateObjectiveValue<MagGenome> for MagIndividual {
     fn evaluate(&self, genome: &MagGenome) -> f64 {
         let key = genome.to_string();
         evaluate_magmom(genome).expect("inv eval")
@@ -80,8 +80,6 @@ pub fn genetic_search() -> Result<()> {
         .with_breeder(breeder);
 
     // FIXMEFIXMEFIXME
-    let mut best_so_far = std::f64::MAX;
-    let mut ichanges = 0;
     for g in engine.evolve().take(config.max_generations) {
         let generation = g?;
         generation.summary();
@@ -89,8 +87,7 @@ pub fn genetic_search() -> Result<()> {
             .population
             .best_member()
             .unwrap()
-            .individual
-            .raw_score();
+            .objective_value();
 
         if let Some(target_energy) = config.target_energy {
             if energy < target_energy {
@@ -98,36 +95,25 @@ pub fn genetic_search() -> Result<()> {
                 break;
             }
         }
-        if energy < best_so_far {
-            ichanges = 0;
-            best_so_far = energy;
-        } else {
-            ichanges += 1;
-        }
-
-        if ichanges > 20 {
-            println!("population evolved for 20 generations without changes. stop now.");
-            break;
-        }
 
         // population convergence
-        let members: Vec<_> = generation.population.members().collect();
-        let mut pop_diversity = 0;
-        for p in members.windows(2) {
-            let (g0, g1) = (p[0].individual.genome(), p[1].individual.genome());
+        // let members: Vec<_> = generation.population.members().collect();
+        // let mut pop_diversity = 0;
+        // for p in members.windows(2) {
+        //     let (g0, g1) = (p[0].individual.genome(), p[1].individual.genome());
 
-            // sum over individual hamming distance.
-            let dsum = g0
-                .iter()
-                .zip(g1.iter())
-                .fold(0, |acc, (b0, b1)| acc + ((b0 != b1) as isize));
-            pop_diversity += dsum;
-        }
-        info!("population diversity degree = {}", pop_diversity);
-        if pop_diversity == 0 {
-            println!("population converged.");
-            break;
-        }
+        //     // sum over individual hamming distance.
+        //     let dsum = g0
+        //         .iter()
+        //         .zip(g1.iter())
+        //         .fold(0, |acc, (b0, b1)| acc + ((b0 != b1) as isize));
+        //     pop_diversity += dsum;
+        // }
+        // info!("population diversity degree = {}", pop_diversity);
+        // if pop_diversity == 0 {
+        //     println!("population converged.");
+        //     break;
+        // }
     }
 
     let map = EVALUATED.lock().unwrap();
