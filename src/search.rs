@@ -19,7 +19,7 @@ type MagGenome = Binary;
 struct MagIndividual;
 
 impl EvaluateObjectiveValue<MagGenome> for MagIndividual {
-    fn evaluate(&self, genome: &MagGenome) -> f64 {
+    fn evaluate(&mut self, genome: &MagGenome) -> f64 {
         let key = genome.to_string();
         evaluate_magmom(genome).expect("inv eval")
     }
@@ -65,22 +65,27 @@ pub fn genetic_search() -> Result<()> {
 
     // FIXME: genome length
     let length = config.genome_length - 1;
-    let initial_population = build_initial_population(config.population_size, length);
 
     // create a breeder for new individuals
-    let breeder = spdkit::gears::breeder::GeneticBreeder::new()
+    let breeder = spdkit::GeneticBreeder::new()
         .with_crossover(TriadicCrossOver)
         // .with_selector(TournamentSelection::new(3));
         .with_selector(SusSelection::new(3));
 
+    // create a valuer gear
     let temperature = config.boltzmann_temperature;
-    let mut engine = Engine::new(initial_population)
-        .with_creator(MagIndividual)
+    let valuer = spdkit::Valuer::new()
         .with_fitness(spdkit::fitness::MinimizeEnergy::new(temperature))
+        .with_creator(MagIndividual);
+
+    // create evolution engine
+    let mut engine = spdkit::Engine::new()
+        .with_valuer(valuer)
         .with_breeder(breeder);
 
     // FIXMEFIXMEFIXME
-    for g in engine.evolve().take(config.max_generations) {
+    let seeds = build_initial_genomes(config.population_size, length);
+    for g in engine.evolve(&seeds).take(config.max_generations) {
         let generation = g?;
         generation.summary();
         let energy = generation
@@ -122,19 +127,10 @@ pub fn genetic_search() -> Result<()> {
     Ok(())
 }
 
-fn build_initial_population(n: usize, m: usize) -> Population<Binary> {
-    info!(
-        "Build initial population ({} individuals, genome size: {})",
-        n, m
-    );
+fn build_initial_genomes(n: usize, m: usize) -> Vec<Binary> {
+    info!("Initialize {} genomes (genome size: {})", n, m);
 
-    let keys: Vec<_> = (0..n).map(|_| random_binary(m)).collect();
-
-    let indvs = MagIndividual.create(keys);
-
-    spdkit::population::Builder::new(spdkit::fitness::MinimizeEnergy::new(5000.0))
-        .size_limit(n)
-        .build(indvs)
+    (0..n).map(|_| random_binary(m)).collect()
 }
 
 fn random_binary(length: usize) -> Binary {
