@@ -3,12 +3,12 @@
 # [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*cargo.toml][cargo.toml:1]]
 [package]
 name = "magman"
-version = "0.0.9"
+version = "0.0.10"
 edition = "2018"
 authors = ["Wenping Guo <ybyygu@gmail.com>"]
 
 [dependencies]
-gchemol = { git = "https://github.com/ybyygu/gchemol.git", tag="v0.0.34" }
+gchemol = { git = "https://github.com/ybyygu/gchemol.git", tag="v0.0.35" }
 quicli = "0.4"
 structopt = "0.2"
 gosh-db = {version = "*", path = "../../gosh-rs/database"}

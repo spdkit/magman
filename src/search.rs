@@ -78,9 +78,13 @@ pub fn genetic_search() -> Result<()> {
         .with_fitness(spdkit::fitness::MinimizeEnergy::new(temperature))
         .with_creator(MagIndividual);
 
+    // create a survivor gear
+    let survivor = spdkit::Survivor::default();
+
     // create evolution engine
     let mut engine = spdkit::Engine::new()
         .with_valuer(valuer)
+        .with_survivor(survivor)
         .with_breeder(breeder);
 
     // FIXMEFIXMEFIXME
