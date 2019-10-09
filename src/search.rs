@@ -66,12 +66,6 @@ pub fn genetic_search() -> Result<()> {
     // FIXME: genome length
     let length = config.genome_length - 1;
 
-    // create a breeder for new individuals
-    let breeder = spdkit::GeneticBreeder::new()
-        .with_crossover(TriadicCrossOver)
-        // .with_selector(TournamentSelection::new(3));
-        .with_selector(SusSelection::new(3));
-
     // create a valuer gear
     let temperature = config.boltzmann_temperature;
     let valuer = spdkit::Valuer::new()
@@ -81,15 +75,22 @@ pub fn genetic_search() -> Result<()> {
     // create a survivor gear
     let survivor = spdkit::Survivor::default();
 
-    // create evolution engine
-    let mut engine = spdkit::Engine::new()
-        .with_valuer(valuer)
-        .with_survivor(survivor)
-        .with_breeder(breeder);
+    // create a breeder for new individuals
+    let breeder = spdkit::GeneticBreeder::new()
+        .with_crossover(TriadicCrossOver)
+        .with_selector(SusSelection::new(3));
+
+    // setup the algorithm
+    let algo = spdkit::EvolutionAlgorithm::new(breeder, survivor);
 
     // FIXMEFIXMEFIXME
     let seeds = build_initial_genomes(config.population_size, length);
-    for g in engine.evolve(&seeds).take(config.max_generations) {
+    for g in spdkit::Engine::create()
+        .valuer(valuer)
+        .algorithm(algo)
+        .evolve(&seeds)
+        .take(config.max_generations)
+    {
         let generation = g?;
         generation.summary();
         let energy = generation
