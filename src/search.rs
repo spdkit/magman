@@ -19,7 +19,7 @@ type MagGenome = Binary;
 struct MagIndividual;
 
 impl EvaluateObjectiveValue<MagGenome> for MagIndividual {
-    fn evaluate(&mut self, genome: &MagGenome) -> f64 {
+    fn evaluate(&self, genome: &MagGenome) -> f64 {
         let key = genome.to_string();
         evaluate_magmom(genome).expect("inv eval")
     }
