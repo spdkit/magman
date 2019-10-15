@@ -46,6 +46,36 @@ fn evaluate_magmom(indv: &MagGenome) -> Result<f64> {
 }
 // individual:1 ends here
 
+// survive
+
+// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*survive][survive:1]]
+#[derive(Clone)]
+pub struct Survivor;
+
+use spdkit::Individual;
+impl Survive<MagGenome> for Survivor {
+    fn survive<R: Rng + Sized>(
+        &mut self,
+        population: Population<MagGenome>,
+        rng: &mut R,
+    ) -> Vec<Individual<MagGenome>> {
+        let mut members: Vec<_> = population.members().collect();
+
+        // remove dumplicates
+        members.sort_by(|a, b| a.genome().cmp(b.genome()));
+        members.dedup_by(|a, b| a.genome() == b.genome());
+
+        // remove members with low fitnesses
+        members.sort_by_fitness();
+        members
+            .into_iter()
+            .take(population.size_limit())
+            .map(|m| m.individual.to_owned())
+            .collect()
+    }
+}
+// survive:1 ends here
+
 // core
 
 // [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*core][core:1]]
@@ -72,16 +102,13 @@ pub fn genetic_search() -> Result<()> {
         .with_fitness(spdkit::fitness::MinimizeEnergy::new(temperature))
         .with_creator(MagIndividual);
 
-    // create a survivor gear
-    let survivor = spdkit::Survivor::default();
-
     // create a breeder for new individuals
     let breeder = spdkit::GeneticBreeder::new()
         .with_crossover(TriadicCrossOver)
         .with_selector(SusSelection::new(3));
 
     // setup the algorithm
-    let algo = spdkit::EvolutionAlgorithm::new(breeder, survivor);
+    let algo = spdkit::EvolutionAlgorithm::new(breeder, Survivor);
 
     // FIXMEFIXMEFIXME
     let seeds = build_initial_genomes(config.population_size, length);
