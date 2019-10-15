@@ -36,6 +36,7 @@ pub struct Search {
     pub boltzmann_temperature: f64,
     pub mutation_rate: f64,
     pub genome_length: usize,
+    pub termination_nlast: usize,
 }
 
 impl Default for Config {
@@ -45,6 +46,7 @@ impl Default for Config {
             search: Search {
                 population_size: 10,
                 max_generations: 10,
+                termination_nlast: 50,
                 target_energy: None,
                 genome_length: 12,
                 mutation_rate: 0.1,

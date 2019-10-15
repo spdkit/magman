@@ -88,6 +88,7 @@ pub fn genetic_search() -> Result<()> {
     for g in spdkit::Engine::create()
         .valuer(valuer)
         .algorithm(algo)
+        .termination_nlast(config.termination_nlast)
         .evolve(&seeds)
         .take(config.max_generations)
     {
