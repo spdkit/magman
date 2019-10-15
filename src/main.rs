@@ -23,7 +23,7 @@ struct Cli {
     #[structopt(long = "list", short = "l")]
     list: bool,
 
-    /// Collect data from files completed jobs.
+    /// Collect data from completed job files.
     #[structopt(long = "collect", short = "c", parse(from_os_str))]
     collect: Option<PathBuf>,
 
