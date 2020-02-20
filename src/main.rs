@@ -6,15 +6,13 @@
 // [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*main.rs][main.rs:1]]
 use std::path::PathBuf;
 
-use quicli::prelude::*;
+use gut::cli::*;
+use gut::prelude::*;
 use structopt::*;
 
 /// Predict ground-state magnetic ordering of magnetic system.
 #[derive(Debug, StructOpt)]
 struct Cli {
-    #[structopt(flatten)]
-    verbosity: Verbosity,
-
     /// Prints default configuration.
     #[structopt(long = "print", short = "p")]
     print: bool,
@@ -34,7 +32,6 @@ struct Cli {
 
 fn main() -> CliResult {
     let args = Cli::from_args();
-    args.verbosity.setup_env_logger(&env!("CARGO_PKG_NAME"))?;
 
     if args.print {
         println!("{:#^72}", " default configuration ");

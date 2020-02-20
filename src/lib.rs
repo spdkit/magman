@@ -23,8 +23,7 @@ pub use config::*;
 pub use search::*;
 
 pub(crate) mod common {
-    pub use quicli::prelude::*;
-    pub type Result<T> = ::std::result::Result<T, Error>;
+    pub use gut::prelude::*;
 }
 // mods:1 ends here
 

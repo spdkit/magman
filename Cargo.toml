@@ -8,11 +8,6 @@ edition = "2018"
 authors = ["Wenping Guo <ybyygu@gmail.com>"]
 
 [dependencies]
-gchemol = { git = "https://github.com/ybyygu/gchemol.git", tag="v0.0.35" }
-quicli = "0.4"
-structopt = "0.2"
-gosh-db = {version = "*", path = "../../gosh-rs/database"}
-spdkit = {version = "*", path = "../spdkit"}
 rand = "0.7"
 csv = "1.1"
 serde = {version="1.0", features = ["derive"]}
@@ -20,6 +15,10 @@ serde_json = "1.0"
 toml = "0.5"
 pager = "0.15"
 lazy_static = "1.3"
+structopt = "0.3"
+spdkit = {version = "0.0.18"}
+gut = {version="0.1", package="gchemol-gut"}
+gosh-db = {version = "0.0.8", package="gosh-database"}
 
 [dev-dependencies]
 tempfile = "3"

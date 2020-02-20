@@ -123,6 +123,7 @@ impl Vasp {
         Ok(energy)
     }
 
+    /// Collect items from disk files.
     pub(crate) fn collect_results(&self) -> Result<Vec<crate::magmom::MagneticState>> {
         let dir = &self.working_directory;
         let mut list = vec![];
@@ -208,7 +209,7 @@ impl Vasp {
         let mut replaced = false;
         for line in BufReader::new(
             File::open(incar)
-                .with_context(|_| format!("Failed to open VASP INCAR: {}", incar.display()))?,
+                .with_context(|| format!("Failed to open VASP INCAR: {}", incar.display()))?,
         )
         .lines()
         {
@@ -237,7 +238,7 @@ impl Vasp {
         let kpoints = self.template_directory.join("KPOINTS");
 
         let adir = self.job_directory(so);
-        std::fs::create_dir_all(&adir).with_context(|_| {
+        std::fs::create_dir_all(&adir).with_context(|| {
             format!(
                 "Failed to create VASP working directory: {}",
                 adir.display()
@@ -248,8 +249,8 @@ impl Vasp {
         let new_poscar = &adir.join("POSCAR");
         let new_potcar = &adir.join("POTCAR");
         let new_kpoints = &adir.join("KPOINTS");
-        quicli::fs::write_to_file(new_incar, &new_lines.join("\n"))
-            .with_context(|_| format!("Failed to write new INCAR file: {}", new_incar.display()))?;
+        gut::fs::write_to_file(new_incar, &new_lines.join("\n"))
+            .with_context(|| format!("Failed to write new INCAR file: {}", new_incar.display()))?;
 
         // use linux symbolic link to reduce disk usage
         fn link_file(src_file: &Path, dst_file: &Path) -> Result<()> {
@@ -280,7 +281,7 @@ fn get_energy_from_oszicar<P: AsRef<Path>>(path: P) -> Result<f64> {
     let oszicar = path.as_ref();
     if let Some(line) = BufReader::new(
         File::open(oszicar)
-            .with_context(|_| format!("Failed to open OSZICAR file: {}", oszicar.display()))?,
+            .with_context(|| format!("Failed to open OSZICAR file: {}", oszicar.display()))?,
     )
     .lines()
     .last()

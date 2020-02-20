@@ -10,7 +10,7 @@ lazy_static! {
         let config_file = format!("{}.conf", env!("CARGO_PKG_NAME"));
         println!("configfile {}", config_file);
 
-        let toml_str = quicli::fs::read_file(config_file).expect("Failed to read config file!");
+        let toml_str = gut::fs::read_file(config_file).expect("Failed to read config file!");
         toml::from_str(&toml_str).expect("Failed to parse toml config!")
     };
 }
