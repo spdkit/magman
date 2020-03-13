@@ -1,6 +1,4 @@
-# cargo.toml
-
-# [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*cargo.toml][cargo.toml:1]]
+# [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*cargo][cargo:1]]
 [package]
 name = "magman"
 version = "0.0.13"
@@ -22,5 +20,4 @@ gosh-db = {version = "0.0.8", package="gosh-database"}
 
 [dev-dependencies]
 tempfile = "3"
-duct = "0.12"
-# cargo.toml:1 ends here
+# cargo:1 ends here

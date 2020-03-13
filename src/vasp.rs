@@ -1,5 +1,3 @@
-// imports
-
 // [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*imports][imports:1]]
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -61,8 +59,6 @@ fn test_read_data() {
     let filename = "tests/files/results.csv";
     let x = read_data(filename).expect("magresult");
 }
-
-// calculate
 
 // [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*calculate][calculate:1]]
 /// VASP related data
@@ -298,8 +294,6 @@ fn get_energy_from_oszicar<P: AsRef<Path>>(path: P) -> Result<f64> {
 }
 // calculate:1 ends here
 
-// test
-
 // [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*test][test:1]]
 #[test]
 fn test_get_vasp_energy() -> Result<()> {
@@ -316,7 +310,7 @@ fn test_get_vasp_energy() -> Result<()> {
 
 #[test]
 fn test_vasp_calculate() -> Result<()> {
-    use duct::cmd;
+    use gut::cli::duct::cmd;
 
     // setup temp directory
     let dir = tempfile::tempdir()?;
