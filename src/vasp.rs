@@ -203,11 +203,8 @@ impl Vasp {
         // replace MAGMOM tag
         let mut new_lines = vec![];
         let mut replaced = false;
-        for line in BufReader::new(
-            File::open(incar)
-                .with_context(|| format!("Failed to open VASP INCAR: {}", incar.display()))?,
-        )
-        .lines()
+        for line in
+            BufReader::new(File::open(incar).with_context(|| format!("Failed to open VASP INCAR: {}", incar.display()))?).lines()
         {
             let mut line = line?;
             let line_up = line.to_uppercase();
@@ -221,10 +218,7 @@ impl Vasp {
             new_lines.push(line);
         }
         if !replaced {
-            eprintln!(
-                "Please fill MAGMOM line in INCAR with {} for templating.",
-                tag
-            );
+            eprintln!("Please fill MAGMOM line in INCAR with {} for templating.", tag);
             bail!("placeholder for setting MAGMOM is not found!");
         }
 
@@ -234,12 +228,7 @@ impl Vasp {
         let kpoints = self.template_directory.join("KPOINTS");
 
         let adir = self.job_directory(so);
-        std::fs::create_dir_all(&adir).with_context(|| {
-            format!(
-                "Failed to create VASP working directory: {}",
-                adir.display()
-            )
-        })?;
+        std::fs::create_dir_all(&adir).with_context(|| format!("Failed to create VASP working directory: {}", adir.display()))?;
 
         let new_incar = &adir.join("INCAR");
         let new_poscar = &adir.join("POSCAR");
@@ -275,12 +264,10 @@ fn get_energy_from_oszicar<P: AsRef<Path>>(path: P) -> Result<f64> {
     use std::io::{BufRead, BufReader};
 
     let oszicar = path.as_ref();
-    if let Some(line) = BufReader::new(
-        File::open(oszicar)
-            .with_context(|| format!("Failed to open OSZICAR file: {}", oszicar.display()))?,
-    )
-    .lines()
-    .last()
+    if let Some(line) =
+        BufReader::new(File::open(oszicar).with_context(|| format!("Failed to open OSZICAR file: {}", oszicar.display()))?)
+            .lines()
+            .last()
     {
         let line = line?;
         if let Some(p) = line.find("E0=") {

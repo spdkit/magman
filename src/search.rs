@@ -6,8 +6,8 @@ use std::path::Path;
 use crate::common::*;
 
 use spdkit::encoding::Binary;
-use spdkit::prelude::*;
 use spdkit::population::Population;
+use spdkit::prelude::*;
 // imports:1 ends here
 
 // individual
@@ -78,10 +78,7 @@ pub fn genetic_search() -> Result<()> {
         .with_selector(SusSelection::new(3));
 
     // setup the algorithm
-    let algo = spdkit::EvolutionAlgorithm::new(
-        breeder,
-        spdkit::Survivor::create().remove_duplicates(true),
-    );
+    let algo = spdkit::EvolutionAlgorithm::new(breeder, spdkit::Survivor::create().remove_duplicates(true));
 
     // FIXMEFIXMEFIXME
     let seeds = build_initial_genomes(config.population_size, length);
@@ -94,11 +91,7 @@ pub fn genetic_search() -> Result<()> {
     {
         let generation = g?;
         generation.summary();
-        let energy = generation
-            .population
-            .best_member()
-            .unwrap()
-            .objective_value();
+        let energy = generation.population.best_member().unwrap().objective_value();
 
         if let Some(target_energy) = config.target_energy {
             if energy < target_energy {
