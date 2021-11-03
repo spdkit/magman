@@ -1,6 +1,4 @@
-// core
-
-// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*core][core:1]]
+// [[file:../magman.note::c7167dd1][c7167dd1]]
 use serde::*;
 
 use crate::common::*;
@@ -33,12 +31,6 @@ pub trait EvaluateMagneticState {
     fn evaluate_new(&self, so: &[bool]) -> Result<MagneticState>;
 }
 
-impl Collection for MagneticState {
-    fn collection_name() -> String {
-        "MAGMOM".into()
-    }
-}
-
 impl MagneticState {
     pub fn new(so: &[bool], energy: f64) -> Self {
         Self {
@@ -63,7 +55,10 @@ impl MagneticState {
 
 /// Return binary encoded key of a spin-ordering.
 pub fn binary_key(so: &[bool]) -> String {
-    let ss: String = so.iter().map(|&spin_up| if spin_up { "1" } else { "0" }).collect();
+    let ss: String = so
+        .iter()
+        .map(|&spin_up| if spin_up { "1" } else { "0" })
+        .collect();
     ss
 }
 
@@ -74,9 +69,18 @@ impl MagneticState {
             error!("No items in db.");
         } else {
             println!("Found {} items.", items.len());
-            println!("{:^width$} => {:^12}", "key", "energy", width = items[0].spin_ordering.len());
+            println!(
+                "{:^width$} => {:^12}",
+                "key",
+                "energy",
+                width = items[0].spin_ordering.len()
+            );
 
-            items.sort_by(|a, b| a.energy.partial_cmp(&b.energy).unwrap_or(std::cmp::Ordering::Less));
+            items.sort_by(|a, b| {
+                a.energy
+                    .partial_cmp(&b.energy)
+                    .unwrap_or(std::cmp::Ordering::Less)
+            });
             for ms in items {
                 let key = ms.binary_key();
                 println!("{} => {:<-12.4}", key, ms.energy);
@@ -85,11 +89,9 @@ impl MagneticState {
         Ok(())
     }
 }
-// core:1 ends here
+// c7167dd1 ends here
 
-// test
-
-// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*test][test:1]]
+// [[file:../magman.note::*test][test:1]]
 #[test]
 fn test_list_db() -> Result<()> {
     MagneticState::list_db()?;
