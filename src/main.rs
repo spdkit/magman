@@ -1,9 +1,4 @@
-// main.rs
-// :PROPERTIES:
-// :header-args: :tangle src/main.rs
-// :END:
-
-// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*main.rs][main.rs:1]]
+// [[file:../magman.note::d4bc87e0][d4bc87e0]]
 use std::path::PathBuf;
 
 use gut::cli::*;
@@ -13,6 +8,9 @@ use structopt::*;
 /// Predict ground-state magnetic ordering of magnetic system.
 #[derive(Debug, StructOpt)]
 struct Cli {
+    #[structopt(flatten)]
+    verbose: Verbosity,
+
     /// Prints default configuration.
     #[structopt(long = "print", short = "p")]
     print: bool,
@@ -30,8 +28,9 @@ struct Cli {
     run: bool,
 }
 
-fn main() -> CliResult {
+fn main() -> Result<()> {
     let args = Cli::from_args();
+    args.verbose.setup_logger();
 
     if args.print {
         println!("{:#^72}", " default configuration ");
@@ -53,4 +52,4 @@ fn main() -> CliResult {
 
     Ok(())
 }
-// main.rs:1 ends here
+// d4bc87e0 ends here

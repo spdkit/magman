@@ -1,18 +1,14 @@
-// imports
-
-// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*imports][imports:1]]
+// [[file:../magman.note::*imports][imports:1]]
 use std::path::Path;
 
 use crate::common::*;
 
 use spdkit::encoding::Binary;
-use spdkit::population::Population;
 use spdkit::prelude::*;
+use spdkit::population::Population;
 // imports:1 ends here
 
-// individual
-
-// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*individual][individual:1]]
+// [[file:../magman.note::c0ca7449][c0ca7449]]
 type MagGenome = Binary;
 
 #[derive(Debug, Clone)]
@@ -21,7 +17,11 @@ struct MagIndividual;
 impl EvaluateObjectiveValue<MagGenome> for MagIndividual {
     fn evaluate(&self, genome: &MagGenome) -> f64 {
         let key = genome.to_string();
-        evaluate_magmom(genome).expect("inv eval")
+        evaluate_magmom(genome).unwrap_or_else(|e| panic!("evaluation failed with error: {:?}", e))
+        // match evaluate_magmom(genome) {
+        //     Ok(o) => o,
+        //     Err(e) => panic!("evaluation failed with error: {:?}", e),
+        // }
     }
 }
 
@@ -44,11 +44,9 @@ fn evaluate_magmom(indv: &MagGenome) -> Result<f64> {
 
     Ok(ms.energy)
 }
-// individual:1 ends here
+// c0ca7449 ends here
 
-// core
-
-// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*core][core:1]]
+// [[file:../magman.note::*core][core:1]]
 use std::collections::HashMap;
 use std::sync::Mutex;
 
@@ -78,7 +76,10 @@ pub fn genetic_search() -> Result<()> {
         .with_selector(SusSelection::new(3));
 
     // setup the algorithm
-    let algo = spdkit::EvolutionAlgorithm::new(breeder, spdkit::Survivor::create().remove_duplicates(true));
+    let algo = spdkit::EvolutionAlgorithm::new(
+        breeder,
+        spdkit::Survivor::create().remove_duplicates(true),
+    );
 
     // FIXMEFIXMEFIXME
     let seeds = build_initial_genomes(config.population_size, length);
@@ -91,7 +92,11 @@ pub fn genetic_search() -> Result<()> {
     {
         let generation = g?;
         generation.summary();
-        let energy = generation.population.best_member().unwrap().objective_value();
+        let energy = generation
+            .population
+            .best_member()
+            .unwrap()
+            .objective_value();
 
         if let Some(target_energy) = config.target_energy {
             if energy < target_energy {

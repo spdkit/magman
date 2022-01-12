@@ -1,4 +1,4 @@
-// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*imports][imports:1]]
+// [[file:../magman.note::*imports][imports:1]]
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -60,7 +60,7 @@ fn test_read_data() {
     let x = read_data(filename).expect("magresult");
 }
 
-// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*calculate][calculate:1]]
+// [[file:../magman.note::f6ae3a4b][f6ae3a4b]]
 /// VASP related data
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Vasp {
@@ -104,13 +104,17 @@ impl Default for Vasp {
 impl Vasp {
     /// Call VASP to calculate energy with spin-ordering of `so`.
     pub(crate) fn calculate_new(&self, so: &[bool]) -> Result<f64> {
-        use std::process::Command;
+        // use std::process::Command;
+        use gut::cli::duct::cmd;
 
         let adir = self.job_directory(so);
         if !self.already_done(&adir) {
             debug!("calculating new job {}, ", adir.display());
             self.prepare_vasp_inputs(so)?;
-            let _ = Command::new(&self.cmdline).current_dir(&adir).output()?;
+            debug!("cmdline: {}", self.cmdline);
+            let o = cmd!(&self.cmdline).dir(&adir).read()?;
+            debug!("vasp output: {}", o);
+            // let _ = Command::new(&self.cmdline).current_dir(&adir).output()?;
         }
 
         let oszicar = adir.join("OSZICAR");
@@ -203,8 +207,11 @@ impl Vasp {
         // replace MAGMOM tag
         let mut new_lines = vec![];
         let mut replaced = false;
-        for line in
-            BufReader::new(File::open(incar).with_context(|| format!("Failed to open VASP INCAR: {}", incar.display()))?).lines()
+        for line in BufReader::new(
+            File::open(incar)
+                .with_context(|| format!("Failed to open VASP INCAR: {}", incar.display()))?,
+        )
+        .lines()
         {
             let mut line = line?;
             let line_up = line.to_uppercase();
@@ -218,7 +225,10 @@ impl Vasp {
             new_lines.push(line);
         }
         if !replaced {
-            eprintln!("Please fill MAGMOM line in INCAR with {} for templating.", tag);
+            eprintln!(
+                "Please fill MAGMOM line in INCAR with {} for templating.",
+                tag
+            );
             bail!("placeholder for setting MAGMOM is not found!");
         }
 
@@ -228,7 +238,12 @@ impl Vasp {
         let kpoints = self.template_directory.join("KPOINTS");
 
         let adir = self.job_directory(so);
-        std::fs::create_dir_all(&adir).with_context(|| format!("Failed to create VASP working directory: {}", adir.display()))?;
+        std::fs::create_dir_all(&adir).with_context(|| {
+            format!(
+                "Failed to create VASP working directory: {}",
+                adir.display()
+            )
+        })?;
 
         let new_incar = &adir.join("INCAR");
         let new_poscar = &adir.join("POSCAR");
@@ -264,10 +279,12 @@ fn get_energy_from_oszicar<P: AsRef<Path>>(path: P) -> Result<f64> {
     use std::io::{BufRead, BufReader};
 
     let oszicar = path.as_ref();
-    if let Some(line) =
-        BufReader::new(File::open(oszicar).with_context(|| format!("Failed to open OSZICAR file: {}", oszicar.display()))?)
-            .lines()
-            .last()
+    if let Some(line) = BufReader::new(
+        File::open(oszicar)
+            .with_context(|| format!("Failed to open OSZICAR file: {}", oszicar.display()))?,
+    )
+    .lines()
+    .last()
     {
         let line = line?;
         if let Some(p) = line.find("E0=") {
@@ -279,9 +296,9 @@ fn get_energy_from_oszicar<P: AsRef<Path>>(path: P) -> Result<f64> {
     }
     bail!("Failed to get energy from: {}", oszicar.display());
 }
-// calculate:1 ends here
+// f6ae3a4b ends here
 
-// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*test][test:1]]
+// [[file:../magman.note::*test][test:1]]
 #[test]
 fn test_get_vasp_energy() -> Result<()> {
     let adir: std::path::PathBuf = "tests/files/jobs/100100001001".into();
