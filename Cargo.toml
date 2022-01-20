@@ -1,7 +1,7 @@
 # [[file:magman.note::66f2d490][66f2d490]]
 [package]
 name = "magman"
-version = "0.0.13"
+version = "0.0.14"
 edition = "2021"
 authors = ["Wenping Guo <ybyygu@gmail.com>"]
 
@@ -17,6 +17,8 @@ structopt = "0.3"
 spdkit = {version = "0.0.18"}
 gut = {version="0.1", package="gchemol-gut"}
 gosh-db = {version = "0.0.8", package="gosh-database"}
+gchemol-parser = {version = "0.3"}
+
 
 [dev-dependencies]
 tempfile = "3.3"

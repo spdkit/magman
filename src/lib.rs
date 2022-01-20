@@ -1,23 +1,18 @@
-// header
-
-// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*header][header:1]]
+// [[file:../magman.note::*header][header:1]]
 //! Predict ground-state magnetic ordering of magnetic system
 // header:1 ends here
 
-// imports
-
-// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*imports][imports:1]]
+// [[file:../magman.note::*imports][imports:1]]
 #[macro_use]
 extern crate lazy_static;
 // imports:1 ends here
 
-// mods
-
-// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*mods][mods:1]]
+// [[file:../magman.note::25e28290][25e28290]]
 mod config;
 mod magmom;
 mod search;
 mod vasp;
+mod magorder;
 
 pub use config::*;
 pub use search::*;
@@ -25,11 +20,9 @@ pub use search::*;
 pub(crate) mod common {
     pub use gut::prelude::*;
 }
-// mods:1 ends here
+// 25e28290 ends here
 
-// global
-
-// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*global][global:1]]
+// [[file:../magman.note::*pub][pub:1]]
 use crate::common::*;
 
 // global database connection
@@ -65,4 +58,8 @@ pub fn collect_results_from_dir(d: &std::path::Path) -> Result<()> {
 
     Ok(())
 }
-// global:1 ends here
+// pub:1 ends here
+
+// [[file:../magman.note::56d334b5][56d334b5]]
+pub use magorder::enter_main as magorder_enter_main;
+// 56d334b5 ends here
