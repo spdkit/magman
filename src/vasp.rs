@@ -205,11 +205,8 @@ impl Vasp {
         // replace MAGMOM tag
         let mut new_lines = vec![];
         let mut replaced = false;
-        for line in BufReader::new(
-            File::open(incar)
-                .with_context(|| format!("Failed to open VASP INCAR: {}", incar.display()))?,
-        )
-        .lines()
+        for line in
+            BufReader::new(File::open(incar).with_context(|| format!("Failed to open VASP INCAR: {}", incar.display()))?).lines()
         {
             let mut line = line?;
             let line_up = line.to_uppercase();
@@ -223,10 +220,7 @@ impl Vasp {
             new_lines.push(line);
         }
         if !replaced {
-            eprintln!(
-                "Please fill MAGMOM line in INCAR with {} for templating.",
-                tag
-            );
+            eprintln!("Please fill MAGMOM line in INCAR with {} for templating.", tag);
             bail!("placeholder for setting MAGMOM is not found!");
         }
 
@@ -236,12 +230,7 @@ impl Vasp {
         let kpoints = self.template_directory.join("KPOINTS");
 
         let adir = self.job_directory(so);
-        std::fs::create_dir_all(&adir).with_context(|| {
-            format!(
-                "Failed to create VASP working directory: {}",
-                adir.display()
-            )
-        })?;
+        std::fs::create_dir_all(&adir).with_context(|| format!("Failed to create VASP working directory: {}", adir.display()))?;
 
         let new_incar = &adir.join("INCAR");
         let new_poscar = &adir.join("POSCAR");
@@ -276,14 +265,18 @@ fn get_energy_from_oszicar<P: AsRef<Path>>(path: P) -> Result<f64> {
     use std::fs::File;
     use std::io::{BufRead, BufReader};
 
+    // wait up to 2 seconds to make sure OSZICAR to be updated
     let oszicar = path.as_ref();
-    if let Some(line) = BufReader::new(
-        File::open(oszicar)
-            .with_context(|| format!("Failed to open OSZICAR file: {}", oszicar.display()))?,
-    )
-    .lines()
-    .last()
-    {
+    let scan_rate = 0.1;
+    for _ in 0..20 {
+        if oszicar.exits() {
+            break;
+        }
+        trace!("waiting for OSZICAR ...");
+        gut::utils::sleep(scan_rate);
+    }
+
+    if let Some(line) = gut::fs::read_file(oszicar)?.lines().last() {
         let line = line?;
         if let Some(p) = line.find("E0=") {
             if let Some(s) = line[p + 3..].split_whitespace().next() {
@@ -292,7 +285,8 @@ fn get_energy_from_oszicar<P: AsRef<Path>>(path: P) -> Result<f64> {
             }
         }
     }
-    bail!("Failed to get energy from: {}", oszicar.display());
+
+    bail!("Failed to read energy from {}", oszicar.display());
 }
 // f6ae3a4b ends here
 
