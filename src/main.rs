@@ -26,6 +26,10 @@ struct Cli {
     /// Run genetic search.
     #[structopt(long = "run", short = "r")]
     run: bool,
+
+    /// Specifies the number of jobs to run simultaneously
+    #[structopt(long = "jobs", short = "j", default_value = "1")]
+    njobs: usize,
 }
 
 fn main() -> Result<()> {
@@ -36,6 +40,13 @@ fn main() -> Result<()> {
         println!("{:#^72}", " default configuration ");
         magman::Config::default().print_toml();
         return Ok(());
+    }
+
+    // run in serial by default
+    let njobs = args.njobs;
+    std::env::set_var("RAYON_NUM_THREADS", njobs.to_string());
+    if njobs > 1 {
+        println!("Run {njobs} in parallel");
     }
 
     if args.run {

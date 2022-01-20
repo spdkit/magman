@@ -104,7 +104,6 @@ impl Default for Vasp {
 impl Vasp {
     /// Call VASP to calculate energy with spin-ordering of `so`.
     pub(crate) fn calculate_new(&self, so: &[bool]) -> Result<f64> {
-        // use std::process::Command;
         use gut::cli::duct::cmd;
 
         let adir = self.job_directory(so);
@@ -114,7 +113,6 @@ impl Vasp {
             debug!("cmdline: {}", self.cmdline);
             let o = cmd!(&self.cmdline).dir(&adir).read()?;
             debug!("vasp output: {}", o);
-            // let _ = Command::new(&self.cmdline).current_dir(&adir).output()?;
         }
 
         let oszicar = adir.join("OSZICAR");
