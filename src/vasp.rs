@@ -104,19 +104,22 @@ impl Default for Vasp {
 impl Vasp {
     /// Call VASP to calculate energy with spin-ordering of `so`.
     pub(crate) fn calculate_new(&self, so: &[bool]) -> Result<f64> {
-        use gut::cli::duct::cmd;
+        // use gut::cli::duct::cmd;
+        use std::process::Command;
 
         let adir = self.job_directory(so);
+        debug!("Evaluate job in {adir:?}");
         if !self.already_done(&adir) {
-            debug!("calculating new job {}, ", adir.display());
             self.prepare_vasp_inputs(so)?;
-            debug!("cmdline: {}", self.cmdline);
-            let o = cmd!(&self.cmdline).dir(&adir).read()?;
-            debug!("vasp output: {}", o);
+            debug!("calculate new job {adir:?} using script {}", self.cmdline);
+            let o = Command::new(&self.cmdline).current_dir(&adir).output()?;
+            if !o.status.success() {
+                warn!("vasp output: {:?}", o);
+            }
         }
 
         let oszicar = adir.join("OSZICAR");
-        let energy = get_energy_from_oszicar(oszicar)?;
+        let energy = get_energy_from_oszicar(oszicar).with_context(|| format!("get energy for {adir:?}"))?;
         println!("job {}, energy = {}", adir.display(), energy);
         Ok(energy)
     }
@@ -268,21 +271,18 @@ fn get_energy_from_oszicar<P: AsRef<Path>>(path: P) -> Result<f64> {
     // wait up to 2 seconds to make sure OSZICAR to be updated
     let oszicar = path.as_ref();
     let scan_rate = 0.1;
-    for _ in 0..20 {
-        if oszicar.exits() {
-            break;
-        }
-        trace!("waiting for OSZICAR ...");
-        gut::utils::sleep(scan_rate);
-    }
-
+    trace!("read energy from {:?}", oszicar);
     if let Some(line) = gut::fs::read_file(oszicar)?.lines().last() {
-        let line = line?;
-        if let Some(p) = line.find("E0=") {
-            if let Some(s) = line[p + 3..].split_whitespace().next() {
-                let energy = s.parse()?;
-                return Ok(energy);
+        trace!("last line = {}", line);
+        for _ in 0..20 {
+            if let Some(p) = line.find("E0=") {
+                if let Some(s) = line[p + 3..].split_whitespace().next() {
+                    let energy = s.parse()?;
+                    return Ok(energy);
+                }
             }
+            trace!("waiting for OSZICAR {:?}", oszicar);
+            gut::utils::sleep(scan_rate);
         }
     }
 

@@ -37,12 +37,17 @@ fn evaluate_magmom(indv: &MagGenome) -> Result<f64> {
     // let ms = csv.evaluate(&so).expect("indv eval");
 
     let vasp = &crate::config::MAGMAN_CONFIG.vasp;
-    let ms = vasp.evaluate(&so)?;
-    let mut map = EVALUATED.lock().unwrap();
-    let key = so.to_string();
-    map.insert(key, ms.energy);
-
-    Ok(ms.energy)
+    let ms = vasp.evaluate(&so).context("vasp evaluation")?;
+    match EVALUATED.lock() {
+        Ok(mut map) => {
+            let key = so.to_string();
+            map.insert(key, ms.energy);
+            Ok(ms.energy)
+        }
+        Err(err) => {
+            bail!("lock map failed: {:?}", err)
+        }
+    }
 }
 // c0ca7449 ends here
 

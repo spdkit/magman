@@ -19,9 +19,10 @@ pub trait EvaluateMagneticState {
         match crate::magmom::MagneticState::get_from_collection(&MAG_DB_CONNECTION, &key) {
             Ok(ms) => Ok(ms),
             // FIXME: handle not-found error
-            Err(e) => {
-                let ms = self.evaluate_new(so)?;
-                ms.put_into_collection(&MAG_DB_CONNECTION, &key)?;
+            Err(_) => {
+                let ms = self.evaluate_new(so).with_context(|| format!("evaluate {key}"))?;
+                ms.put_into_collection(&MAG_DB_CONNECTION, &key)
+                    .with_context(|| format!("put {key} into db"))?;
                 Ok(ms)
             }
         }
@@ -55,10 +56,7 @@ impl MagneticState {
 
 /// Return binary encoded key of a spin-ordering.
 pub fn binary_key(so: &[bool]) -> String {
-    let ss: String = so
-        .iter()
-        .map(|&spin_up| if spin_up { "1" } else { "0" })
-        .collect();
+    let ss: String = so.iter().map(|&spin_up| if spin_up { "1" } else { "0" }).collect();
     ss
 }
 
@@ -69,18 +67,9 @@ impl MagneticState {
             error!("No items in db.");
         } else {
             println!("Found {} items.", items.len());
-            println!(
-                "{:^width$} => {:^12}",
-                "key",
-                "energy",
-                width = items[0].spin_ordering.len()
-            );
+            println!("{:^width$} => {:^12}", "key", "energy", width = items[0].spin_ordering.len());
 
-            items.sort_by(|a, b| {
-                a.energy
-                    .partial_cmp(&b.energy)
-                    .unwrap_or(std::cmp::Ordering::Less)
-            });
+            items.sort_by(|a, b| a.energy.partial_cmp(&b.energy).unwrap_or(std::cmp::Ordering::Less));
             for ms in items {
                 let key = ms.binary_key();
                 println!("{} => {:<-12.4}", key, ms.energy);
