@@ -1,12 +1,12 @@
-// [[file:../magman.note::*imports][imports:1]]
+// [[file:../magman.note::6445afac][6445afac]]
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use crate::common::*;
 use crate::MAG_DB_CONNECTION;
 
-use gosh_db::prelude::*;
-// imports:1 ends here
+use gosh::db::prelude::*;
+// 6445afac ends here
 
 lazy_static! {
     static ref CSV_DATA: HashMap<String, Record> = {

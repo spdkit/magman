@@ -1,7 +1,7 @@
 # [[file:magman.note::66f2d490][66f2d490]]
 [package]
 name = "magman"
-version = "0.0.14"
+version = "0.0.15"
 edition = "2021"
 authors = ["Wenping Guo <ybyygu@gmail.com>"]
 
@@ -16,10 +16,20 @@ lazy_static = "1.3"
 structopt = "0.3"
 spdkit = {version = "0.0.19"}
 gut = {version="0.1", package="gchemol-gut"}
-gosh-db = {version = "0.0.8", package="gosh-database"}
+gosh = { version = "=0.0.30", features=["adhoc"] }
 gchemol-parser = {version = "0.3"}
-
+# remote runner
+bytes = "1"
+tokio = { version = "1", features = ["full"] }
+tokio-util = "0.6"
+clap = { version = "3.0.10", features = ["derive"] }
+tempfile = "3.3"
+slotmap = { version = "1.0", features = ["serde"] }
+bimap = { version = "0.6", features = ["serde"]}
+spmc = "0.3.0"
 
 [dev-dependencies]
-tempfile = "3.3"
+
+[features]
+adhoc = [] # for local development
 # 66f2d490 ends here

@@ -4,7 +4,7 @@ use serde::*;
 use crate::common::*;
 use crate::MAG_DB_CONNECTION;
 
-use gosh_db::prelude::*;
+use gosh::db::prelude::*;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MagneticState {
