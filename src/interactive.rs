@@ -26,6 +26,7 @@ enum Control {
     Quit,
     Pause,
     Resume,
+    AddNode(String),
 }
 
 type InteractionOutput = String;
@@ -90,6 +91,13 @@ mod taskclient {
         pub async fn resume(&self) -> Result<()> {
             trace!("send resume task msg");
             self.tx_ctl.send(Control::Resume).await?;
+            Ok(())
+        }
+
+        /// Add one remote node into list for computation
+        pub async fn add_node(&self, node: String) -> Result<()> {
+            trace!("send add_node ctl msg");
+            self.tx_ctl.send(Control::AddNode(node)).await?;
             Ok(())
         }
 
@@ -170,6 +178,16 @@ mod taskserver {
                     }
                     Some(ctl) = rx_ctl.recv() => {
                         log_dbg!();
+                        match ctl {
+                            Control::AddNode(node) => {
+                                info!("client asked to add a new remote node: {node:?}");
+                                let nodes = nodes.clone();
+                                nodes.return_node(node.into());
+                            }
+                            _ => {
+                                log_dbg!();
+                            }
+                        }
                     }
                     else => {
                         bail!("Unexpected branch: the communication channels broken?");

@@ -29,6 +29,7 @@ mod codec {
         Quit,
         Resume,
         Pause,
+        AddNode(String),
     }
 
     impl ServerOp {
@@ -44,6 +45,7 @@ mod codec {
                         Signal::Quit => "SIGTERM",
                         Signal::Resume => "SIGCONT",
                         Signal::Pause => "SIGSTOP",
+                        Signal::AddNode(node) => node,
                     };
                     encode(&mut buf, sig);
                     buf
@@ -78,7 +80,7 @@ mod codec {
                         "SIGTERM" => Signal::Quit,
                         "SIGCONT" => Signal::Resume,
                         "SIGSTOP" => Signal::Pause,
-                        _ => todo!(),
+                        node @ _ => Signal::AddNode(node.into()),
                     };
                     ServerOp::Control(sig)
                 }
@@ -179,6 +181,13 @@ mod client {
             trace!("got {} bytes", txt.len());
 
             Ok(txt)
+        }
+
+        /// Add remote node into server list for computation.
+        pub async fn add_node(&mut self, node: String) -> Result<()> {
+            self.send_op_control(codec::Signal::AddNode(node)).await?;
+
+            Ok(())
         }
 
         /// Try to ask the background computation to stop
@@ -343,7 +352,12 @@ mod server {
                 }
                 ServerOp::Control(sig) => {
                     debug!("client sent control signal {:?}", sig);
-                    unimplemented!();
+                    match sig {
+                        codec::Signal::Quit => task.terminate().await.ok(),
+                        codec::Signal::Pause => task.pause().await.ok(),
+                        codec::Signal::Resume => task.resume().await.ok(),
+                        codec::Signal::AddNode(node) => task.add_node(node).await.ok(),
+                    };
                 }
                 _ => {
                     unimplemented!();
@@ -385,7 +399,12 @@ struct ClientCli {
     #[structopt(short = "u", default_value = "vasp.sock")]
     socket_file: PathBuf,
 
+    /// Add a new remote node into server
+    #[structopt(short = "a")]
+    add_node: Option<String>,
+
     /// The cmd to run in remote session
+    #[structopt(long, default_value = "pwd")]
     cmd: String,
 
     /// The working dir to run the cmd
@@ -402,10 +421,12 @@ pub async fn client_enter_main() -> Result<()> {
     let timeout = 5;
     wait_file(&args.socket_file, timeout)?;
 
-    Client::connect(&args.socket_file)
-        .await?
-        .interact_with_remote_session(&args.cmd, &args.wrk_dir)
-        .await?;
+    let mut stream = Client::connect(&args.socket_file).await?;
+    if let Some(node) = args.add_node {
+        stream.add_node(node).await?;
+    } else {
+        stream.interact_with_remote_session(&args.cmd, &args.wrk_dir).await?;
+    }
 
     Ok(())
 }
