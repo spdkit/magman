@@ -72,14 +72,10 @@ mod taskclient {
 
     impl TaskClient {
         pub async fn interact(&mut self, cmd: &str, wrk_dir: &str) -> Result<String> {
-            log_dbg!();
             // FIXME: refactor
             let (tx_resp, rx_resp) = oneshot::channel();
-            log_dbg!();
             self.tx_int.send(Interaction(cmd.into(), wrk_dir.into(), tx_resp)).await?;
-            log_dbg!();
             let out = rx_resp.await?;
-            log_dbg!();
             Ok(out)
         }
 
@@ -108,6 +104,9 @@ mod taskclient {
 // d88217da ends here
 
 // [[file:../magman.note::7b4ac45b][7b4ac45b]]
+use crate::job::Nodes;
+use tokio::sync::oneshot;
+
 pub struct TaskServer {
     // for receiving interaction message for child process
     rx_int: Option<RxInteraction>,
@@ -115,37 +114,49 @@ pub struct TaskServer {
     rx_ctl: Option<RxControl>,
 }
 
+type Jobs = (String, String, oneshot::Sender<String>);
+type RxJobs = spmc::Receiver<Jobs>;
+type TxJobs = spmc::Sender<Jobs>;
+async fn handle_client_interaction(jobs: RxJobs, nodes: Nodes) -> Result<()> {
+    let node = nodes.borrow_node()?;
+    let (cmd, wrk_dir, tx_resp) = jobs.recv()?;
+    let job = create_job_for_remote_session(&cmd, &wrk_dir, &node);
+    let name = job.name();
+    info!("Starting job {name} ...");
+    let mut comput = job.submit();
+    comput.start().await?;
+    comput.wait().await?;
+    let txt = gut::fs::read_file(comput.out_file())?;
+    info!("Job {name} completed, sending stdout to the client ...");
+    if let Err(_) = tx_resp.send(txt) {
+        error!("the client has been dropped");
+    }
+    // return node back
+    nodes.return_node(node)?;
+
+    Ok(())
+}
+
 mod taskserver {
     use super::*;
 
     impl TaskServer {
         /// Run child process in new session, and serve requests for interactions.
-        pub async fn run_and_serve(&mut self) -> Result<()> {
+        pub async fn run_and_serve(&mut self, nodes: Vec<String>) -> Result<()> {
             let mut rx_int = self.rx_int.take().context("no rx_int")?;
             let mut rx_ctl = self.rx_ctl.take().context("no rx_ctl")?;
 
-            let nodes = crate::job::Nodes::new(["localhost", "hpc44"]);
-            type JobChan = (String, String, tokio::sync::oneshot::Sender<String>);
-            let (mut tx_jobs, rx_jobs): (spmc::Sender<JobChan>, spmc::Receiver<JobChan>) = spmc::channel();
+            let nodes = Nodes::new(nodes);
+            let (mut tx_jobs, rx_jobs) = spmc::channel();
             for i in 0.. {
                 // make sure run in parallel
                 let join_handler = {
                     let jobs = rx_jobs.clone();
                     let nodes = nodes.clone();
                     tokio::spawn(async move {
-                        // FIXME: remove unwrap
-                        let node = nodes.borrow_node().unwrap();
-                        let (cmd, wrk_dir, tx_resp) = jobs.recv().unwrap();
-                        let job = create_job_for_remote_session(&cmd, &wrk_dir, &node);
-                        let name = job.name();
-                        info!("Starting job {name} ...");
-                        let mut compt = job.submit();
-                        compt.start().await.unwrap();
-                        compt.wait().await.unwrap();
-                        info!("Job {name} completed, sending stdout to the client ...");
-                        tx_resp.send(String::new()).unwrap();
-                        // return node back
-                        nodes.return_node(node).unwrap();
+                        if let Err(err) = handle_client_interaction(jobs, nodes).await {
+                            error!("found error when running job: {err:?}");
+                        }
                     })
                 };
                 // handle logic in main thread

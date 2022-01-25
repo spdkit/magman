@@ -105,9 +105,11 @@ impl Node {
     }
 }
 
-impl From<&str> for Node {
-    fn from(node: &str) -> Self {
-        Self { name: node.into() }
+impl<T: Into<String>> From<T> for Node {
+    fn from(node: T) -> Self {
+        let name = node.into();
+        assert!(!name.is_empty(), "node name cannot be empty!");
+        Self { name }
     }
 }
 

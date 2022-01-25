@@ -282,13 +282,14 @@ mod server {
         }
 
         /// Start and serve the client interaction.
-        pub async fn run_and_serve(&mut self) -> Result<()> {
+        pub async fn run_and_serve(&mut self, nodes: Vec<String>) -> Result<()> {
             // watch for user interruption
             let ctrl_c = tokio::signal::ctrl_c();
 
             // state will be shared with different tasks
             let (mut server, client) = new_interactive_task();
-            let h = server.run_and_serve();
+
+            let h = server.run_and_serve(nodes);
             tokio::pin!(h);
 
             tokio::select! {
@@ -331,7 +332,9 @@ mod server {
                     match task.interact(&cmdline, &wrk_dir).await {
                         Ok(txt) => {
                             debug!("sending client text read from stdout");
-                            codec::send_msg_encode(&mut client_stream, &txt).await.unwrap();
+                            if let Err(err) = codec::send_msg_encode(&mut client_stream, &txt).await {
+                                error!("send client msg error: {err:?}");
+                            }
                         }
                         Err(err) => {
                             error!("interaction error: {:?}", err);
@@ -443,6 +446,10 @@ struct ServerCli {
     /// Path to the socket file to bind (only valid for interactive calculation)
     #[structopt(default_value = "magman.sock")]
     socket_file: PathBuf,
+
+    /// The remote nodes for calculations
+    #[structopt(long, required = true, use_delimiter=true)]
+    nodes: Vec<String>,
 }
 
 #[tokio::main]
@@ -451,9 +458,7 @@ pub async fn server_enter_main() -> Result<()> {
     args.verbose.setup_logger();
 
     debug!("Run VASP for interactive calculation ...");
-    Server::create(&args.socket_file)?
-        .run_and_serve()
-        .await?;
+    Server::create(&args.socket_file)?.run_and_serve(args.nodes).await?;
 
     Ok(())
 }
