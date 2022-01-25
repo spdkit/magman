@@ -1,12 +1,11 @@
-// [[file:../magman.note::*imports][imports:1]]
+// [[file:../magman.note::fadfe03d][fadfe03d]]
+use super::*;
 use std::path::Path;
 
-use crate::common::*;
-
 use spdkit::encoding::Binary;
-use spdkit::prelude::*;
 use spdkit::population::Population;
-// imports:1 ends here
+use spdkit::prelude::*;
+// fadfe03d ends here
 
 // [[file:../magman.note::c0ca7449][c0ca7449]]
 type MagGenome = Binary;

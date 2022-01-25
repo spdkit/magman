@@ -371,31 +371,6 @@ impl Client {
 // [[file:../magman.note::251cb9ba][251cb9ba]]
 use gut::fs::*;
 use structopt::*;
-
-use gut::utils::sleep;
-
-/// Wait until file `f` available for max time of `timeout`.
-///
-/// # Parameters
-/// * timeout: timeout in seconds
-/// * f: the file to wait for available
-pub fn wait_file(f: &Path, timeout: usize) -> Result<()> {
-    // wait a moment for socke file ready
-    let interval = 0.1;
-    let mut t = 0.0;
-    loop {
-        if f.exists() {
-            trace!("Elapsed time during waiting: {:.2} seconds ", t);
-            return Ok(());
-        }
-        t += interval;
-        sleep(interval);
-
-        if t > timeout as f64 {
-            bail!("file {:?} doest exist for {} seconds", f, timeout);
-        }
-    }
-}
 // 251cb9ba ends here
 
 // [[file:../magman.note::512e88e7][512e88e7]]

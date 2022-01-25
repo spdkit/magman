@@ -2,7 +2,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use crate::common::*;
+use super::*;
 use crate::MAG_DB_CONNECTION;
 
 use gosh::db::prelude::*;

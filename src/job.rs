@@ -203,6 +203,14 @@ impl Job {
     }
 }
 
+fn create_run_file(session: &Computation) -> Result<()> {
+    let run_file = session.run_file();
+    gut::fs::write_script_file(&run_file, &session.job.script)?;
+    wait_file(&run_file, 2)?;
+
+    Ok(())
+}
+
 impl Computation {
     /// Construct `Computation` of user inputted `Job`.
     pub fn new(job: Job) -> Self {
@@ -217,19 +225,11 @@ impl Computation {
             session: None,
         };
 
-        // create run file
-        let file = session.run_file();
-
-        // make run script executable
-        match std::fs::OpenOptions::new().create(true).write(true).mode(0o770).open(&file) {
-            Ok(mut f) => {
-                let _ = f.write_all(session.job.script.as_bytes());
-                trace!("script content wrote to: {}.", file.display());
-            }
-            Err(e) => {
-                panic!("Error whiling creating job run file: {}", e);
-            }
+        // create run file and make sure it executable later
+        if let Err(err) = create_run_file(&session) {
+            panic!("cannot create execuable run file within 2 seconds");
         }
+
         let file = session.inp_file();
         match File::create(&session.inp_file()) {
             Ok(mut f) => {

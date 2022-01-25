@@ -8,13 +8,13 @@ use super::*;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
-use tokio::sync::oneshot;
 // ae9e9435 ends here
 
 // [[file:../magman.note::e899191b][e899191b]]
 use crate::job::Db;
 use crate::job::Job;
 use crate::job::JobId;
+use tokio::sync::oneshot;
 
 #[derive(Debug)]
 // cmd + working_dir + done?
@@ -105,7 +105,6 @@ mod taskclient {
 
 // [[file:../magman.note::7b4ac45b][7b4ac45b]]
 use crate::job::Nodes;
-use tokio::sync::oneshot;
 
 pub struct TaskServer {
     // for receiving interaction message for child process
@@ -118,8 +117,8 @@ type Jobs = (String, String, oneshot::Sender<String>);
 type RxJobs = spmc::Receiver<Jobs>;
 type TxJobs = spmc::Sender<Jobs>;
 async fn handle_client_interaction(jobs: RxJobs, nodes: Nodes) -> Result<()> {
-    let node = nodes.borrow_node()?;
     let (cmd, wrk_dir, tx_resp) = jobs.recv()?;
+    let node = nodes.borrow_node()?;
     let job = create_job_for_remote_session(&cmd, &wrk_dir, &node);
     let name = job.name();
     info!("Starting job {name} ...");

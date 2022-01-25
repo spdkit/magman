@@ -2,10 +2,12 @@
 //! Predict ground-state magnetic ordering of magnetic system
 // header:1 ends here
 
-// [[file:../magman.note::*imports][imports:1]]
+// [[file:../magman.note::1c2c22e4][1c2c22e4]]
 #[macro_use]
 extern crate lazy_static;
-// imports:1 ends here
+
+use gut::prelude::*;
+// 1c2c22e4 ends here
 
 // [[file:../magman.note::25e28290][25e28290]]
 mod config;
@@ -22,16 +24,36 @@ mod session;
 
 pub use config::*;
 pub use search::*;
-
-pub(crate) mod common {
-    pub use gut::prelude::*;
-}
 // 25e28290 ends here
 
 // [[file:../magman.note::5dec57d3][5dec57d3]]
 pub use runner::remote_enter_main;
 
-use crate::common::*;
+use gut::utils::sleep;
+
+/// Wait until file `f` available for max time of `timeout`.
+///
+/// # Parameters
+/// * timeout: timeout in seconds
+/// * f: the file to wait for available
+pub fn wait_file(f: &std::path::Path, timeout: usize) -> Result<()> {
+    // wait a moment for socke file ready
+    let interval = 0.1;
+    let mut t = 0.0;
+    loop {
+        if f.exists() {
+            trace!("Elapsed time during waiting: {:.2} seconds ", t);
+            return Ok(());
+        }
+        t += interval;
+        sleep(interval);
+
+        if t > timeout as f64 {
+            bail!("file {:?} doest exist for {} seconds", f, timeout);
+        }
+    }
+}
+
 
 // global database connection
 lazy_static! {

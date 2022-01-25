@@ -1,7 +1,7 @@
 // [[file:../magman.note::c7167dd1][c7167dd1]]
 use serde::*;
 
-use crate::common::*;
+use super::*;
 use crate::MAG_DB_CONNECTION;
 
 use gosh::db::prelude::*;
