@@ -146,6 +146,8 @@ mod taskserver {
             let mut rx_int = self.rx_int.take().context("no rx_int")?;
             let mut rx_ctl = self.rx_ctl.take().context("no rx_ctl")?;
 
+            let nodes = crate::job::Nodes::new(&["localhost".into(), "hpc44".into()]);
+
             type JobChan = (Job, tokio::sync::oneshot::Sender<String>);
             let (mut tx_jobs, rx_jobs): (spmc::Sender<JobChan>, spmc::Receiver<JobChan>) = spmc::channel();
             for i in 0.. {
@@ -153,18 +155,25 @@ mod taskserver {
                 let join_handler = {
                     let session = session.clone();
                     let jobs = rx_jobs.clone();
+                    let nodes = nodes.clone();
                     tokio::spawn(async move {
                         log_dbg!();
+                        // get node
+                        let node = nodes.borrow_node().unwrap();
+                        // if let Some(node) = nodes.lock().await.pop() {
                         let (job, tx_resp) = jobs.recv().unwrap();
-                        log_dbg!();
+                        let name = job.name();
+                        info!("Starting job {name} ...");
                         let mut compt = job.submit();
                         log_dbg!();
                         compt.start().await.unwrap();
                         log_dbg!();
                         compt.wait().await.unwrap();
-                        log_dbg!();
+                        info!("Job {name} completed, sending stdout to the client ...");
                         tx_resp.send(String::new()).unwrap();
                         log_dbg!();
+                        // return node back
+                        nodes.return_node(node).unwrap();
                     })
                 };
                 // handle logic in main thread

@@ -14,6 +14,9 @@ use tempfile::{tempdir, tempdir_in, TempDir};
 /// Represents a computational job inputted by user.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Job {
+    /// A unique random name
+    name: String,
+
     /// Input string for stdin
     input: String,
 
@@ -45,6 +48,7 @@ impl Job {
     ///
     pub fn new(script: &str) -> Self {
         Self {
+            name: random_name(),
             script: script.into(),
             input: String::new(),
 
@@ -65,6 +69,23 @@ impl Job {
             warn!("try to attach a dumplicated file: {}!", file.display());
         }
     }
+
+    /// Return the job name
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+}
+
+fn random_name() -> String {
+    use rand::distributions::Alphanumeric;
+    use rand::Rng;
+
+    let mut rng = rand::thread_rng();
+    std::iter::repeat(())
+        .map(|()| rng.sample(Alphanumeric))
+        .map(char::from)
+        .take(6)
+        .collect()
 }
 // 50e6ed5a ends here
 
@@ -486,6 +507,42 @@ mod impl_jobs_slotmap {
     }
 }
 // slotmap:1 ends here
+
+// [[file:../magman.note::769262a8][769262a8]]
+use crossbeam_channel::{unbounded, Receiver, Sender};
+
+type Node = String;
+
+#[derive(Clone)]
+pub struct Nodes {
+    rx: Receiver<Node>,
+    tx: Sender<Node>,
+}
+
+impl Nodes {
+    pub fn new(nodes: &[Node]) -> Self {
+        let (tx, rx) = unbounded();
+        let n = nodes.len();
+        info!("We have {n} nodes in totoal for computation.");
+        for node in nodes {
+            tx.send(node.into()).unwrap();
+        }
+        Self { rx, tx }
+    }
+
+    pub fn borrow_node(&self) -> Result<Node> {
+        info!("client borrowed one node");
+        let node = self.rx.recv()?;
+        Ok(node)
+    }
+
+    pub fn return_node(&self, node: Node) -> Result<()> {
+        info!("client returned one node");
+        self.tx.send(node)?;
+        Ok(())
+    }
+}
+// 769262a8 ends here
 
 // [[file:../magman.note::dbe0de29][dbe0de29]]
 pub use self::db::Db;
