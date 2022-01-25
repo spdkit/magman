@@ -89,6 +89,66 @@ fn random_name() -> String {
 }
 // 50e6ed5a ends here
 
+// [[file:../magman.note::769262a8][769262a8]]
+use crossbeam_channel::{unbounded, Receiver, Sender};
+
+/// Represents a remote node for computation
+#[derive(Debug, Clone)]
+pub struct Node {
+    name: String,
+}
+
+impl Node {
+    /// Return the name of remote node
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+}
+
+impl From<&str> for Node {
+    fn from(node: &str) -> Self {
+        Self { name: node.into() }
+    }
+}
+
+/// Represents a list of remote nodes allocated for computation
+#[derive(Clone)]
+pub struct Nodes {
+    rx: Receiver<Node>,
+    tx: Sender<Node>,
+}
+
+impl Nodes {
+    /// Construct `Nodes` from a list of nodes.
+    pub fn new<T: Into<Node>>(nodes: impl IntoIterator<Item = T>) -> Self {
+        let (tx, rx) = unbounded();
+        let nodes = nodes.into_iter().collect_vec();
+        let n = nodes.len();
+        info!("We have {n} nodes in totoal for computation.");
+        for node in nodes {
+            tx.send(node.into()).unwrap();
+        }
+        Self { rx, tx }
+    }
+
+    /// Borrow one node from `Nodes`
+    pub fn borrow_node(&self) -> Result<Node> {
+        let node = self.rx.recv()?;
+        let name = &node.name;
+        info!("client borrowed one node: {name:?}");
+        Ok(node)
+    }
+
+    /// Return one `node` to `Nodes`
+    pub fn return_node(&self, node: Node) -> Result<()> {
+        let name = &node.name;
+        info!("client returned node {name:?}");
+        self.tx.send(node)?;
+        Ok(())
+    }
+}
+// 769262a8 ends here
+
 // [[file:../magman.note::955c926a][955c926a]]
 /// Computation represents a submitted `Job`
 pub struct Computation {
@@ -507,42 +567,6 @@ mod impl_jobs_slotmap {
     }
 }
 // slotmap:1 ends here
-
-// [[file:../magman.note::769262a8][769262a8]]
-use crossbeam_channel::{unbounded, Receiver, Sender};
-
-type Node = String;
-
-#[derive(Clone)]
-pub struct Nodes {
-    rx: Receiver<Node>,
-    tx: Sender<Node>,
-}
-
-impl Nodes {
-    pub fn new(nodes: &[Node]) -> Self {
-        let (tx, rx) = unbounded();
-        let n = nodes.len();
-        info!("We have {n} nodes in totoal for computation.");
-        for node in nodes {
-            tx.send(node.into()).unwrap();
-        }
-        Self { rx, tx }
-    }
-
-    pub fn borrow_node(&self) -> Result<Node> {
-        info!("client borrowed one node");
-        let node = self.rx.recv()?;
-        Ok(node)
-    }
-
-    pub fn return_node(&self, node: Node) -> Result<()> {
-        info!("client returned one node");
-        self.tx.send(node)?;
-        Ok(())
-    }
-}
-// 769262a8 ends here
 
 // [[file:../magman.note::dbe0de29][dbe0de29]]
 pub use self::db::Db;

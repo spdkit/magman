@@ -1,6 +1,4 @@
-// imports
-
-// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*imports][imports:1]]
+// [[file:../magman.note::*imports][imports:1]]
 use serde::*;
 use toml;
 
@@ -16,9 +14,7 @@ lazy_static! {
 }
 // imports:1 ends here
 
-// base
-
-// [[file:~/Workspace/Programming/structure-predication/magman/magman.note::*base][base:1]]
+// [[file:../magman.note::4e733dd2][4e733dd2]]
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Config {
     /// VASP related parameters.
@@ -62,4 +58,4 @@ impl Config {
         println!("{:}", x);
     }
 }
-// base:1 ends here
+// 4e733dd2 ends here

@@ -38,41 +38,22 @@ type TxControl = tokio::sync::mpsc::Sender<Control>;
 // e899191b ends here
 
 // [[file:../magman.note::de5d8bd5][de5d8bd5]]
-#[derive(Clone)]
-struct Session {
-    db: Db,
-}
+use crate::job::Node;
 
-impl Session {
-    fn new() -> Self {
-        Self { db: Db::new() }
-    }
+fn create_job_for_remote_session(cmd: &str, wrk_dir: &str, node: &Node) -> Job {
+    debug!("run cmd {cmd:?} on remote node: {node:?}");
 
-    async fn interact(&mut self, int: Interaction) -> Result<InteractionOutput> {
-        let Interaction(cmd, wrk_dir, tx_resp) = int;
-        let job = create_job_for_remote_session(&cmd, &wrk_dir);
-        let out_file = job.out_file.clone();
-        let job_id = self.db.insert_job(job).await;
-        self.db.wait_job(job_id).await.unwrap();
-        let bytes = self.db.get_job_file(job_id, &out_file).await?;
-        let o: String = std::str::from_utf8(&bytes)?.into();
-        tx_resp.send(o.clone()).unwrap();
-        Ok(o)
-    }
-}
-
-fn create_job_for_remote_session(cmd: &str, wrk_dir: &str) -> Job {
+    let node = node.name();
     let script = format!(
         "#! /usr/bin/env bash
-
+ssh {node} << END
 cd {wrk_dir}
 {cmd}
+END
 "
     );
 
-    // FIXME: run in remote node
-    let job = Job::new(&script);
-    job
+    Job::new(&script)
 }
 // de5d8bd5 ends here
 
@@ -132,8 +113,6 @@ pub struct TaskServer {
     rx_int: Option<RxInteraction>,
     // for controlling child process
     rx_ctl: Option<RxControl>,
-    // child process
-    session: Option<Session>,
 }
 
 mod taskserver {
@@ -142,36 +121,29 @@ mod taskserver {
     impl TaskServer {
         /// Run child process in new session, and serve requests for interactions.
         pub async fn run_and_serve(&mut self) -> Result<()> {
-            let mut session = self.session.as_mut().context("no running session")?;
             let mut rx_int = self.rx_int.take().context("no rx_int")?;
             let mut rx_ctl = self.rx_ctl.take().context("no rx_ctl")?;
 
-            let nodes = crate::job::Nodes::new(&["localhost".into(), "hpc44".into()]);
-
-            type JobChan = (Job, tokio::sync::oneshot::Sender<String>);
+            let nodes = crate::job::Nodes::new(["localhost", "hpc44"]);
+            type JobChan = (String, String, tokio::sync::oneshot::Sender<String>);
             let (mut tx_jobs, rx_jobs): (spmc::Sender<JobChan>, spmc::Receiver<JobChan>) = spmc::channel();
             for i in 0.. {
                 // make sure run in parallel
                 let join_handler = {
-                    let session = session.clone();
                     let jobs = rx_jobs.clone();
                     let nodes = nodes.clone();
                     tokio::spawn(async move {
-                        log_dbg!();
-                        // get node
+                        // FIXME: remove unwrap
                         let node = nodes.borrow_node().unwrap();
-                        // if let Some(node) = nodes.lock().await.pop() {
-                        let (job, tx_resp) = jobs.recv().unwrap();
+                        let (cmd, wrk_dir, tx_resp) = jobs.recv().unwrap();
+                        let job = create_job_for_remote_session(&cmd, &wrk_dir, &node);
                         let name = job.name();
                         info!("Starting job {name} ...");
                         let mut compt = job.submit();
-                        log_dbg!();
                         compt.start().await.unwrap();
-                        log_dbg!();
                         compt.wait().await.unwrap();
                         info!("Job {name} completed, sending stdout to the client ...");
                         tx_resp.send(String::new()).unwrap();
-                        log_dbg!();
                         // return node back
                         nodes.return_node(node).unwrap();
                     })
@@ -184,57 +156,18 @@ mod taskserver {
                     Some(int) = rx_int.recv() => {
                         log_dbg!();
                         let Interaction(cmd, wrk_dir, tx_resp) = int;
-                        let job = create_job_for_remote_session(&cmd, &wrk_dir);
-                        tx_jobs.send((job, tx_resp))?;
+                        tx_jobs.send((cmd, wrk_dir, tx_resp))?;
                     }
                     Some(ctl) = rx_ctl.recv() => {
                         log_dbg!();
-                        match break_control_session(ctl) {
-                            Ok(false) => {},
-                            Ok(true) => break,
-                        Err(err) => {error!("control session error: {:?}", err); break;}
-                       }
                     }
                     else => {
                         bail!("Unexpected branch: the communication channels broken?");
                     }
                 }
             }
-
             Ok(())
         }
-    }
-
-    /// Interact with child process: write stdin with `input` and read in stdout by
-    /// `read_pattern`
-    async fn handle_interaction(session: &mut Session, mut rx_int: RxInteraction, mut rx_ctl: RxControl) -> Result<()> {
-        for i in 0.. {
-            log_dbg!();
-            tokio::select! {
-                Some(int) = rx_int.recv() => {
-                    log_dbg!();
-                    let out = session.interact(int).await?;
-                    info!("session completed: {out:?}");
-                }
-                Some(ctl) = rx_ctl.recv() => {
-                    log_dbg!();
-                    match break_control_session(ctl) {
-                        Ok(false) => {},
-                        Ok(true) => break,
-                        Err(err) => {error!("control session error: {:?}", err); break;}
-                    }
-                }
-                else => {
-                    bail!("Unexpected branch: the communication channels broken?");
-                }
-            };
-        }
-
-        Ok(())
-    }
-
-    fn break_control_session(ctl: Control) -> Result<bool> {
-        todo!();
     }
 }
 // 7b4ac45b ends here
@@ -246,12 +179,9 @@ pub fn new_interactive_task() -> (TaskServer, TaskClient) {
     let (tx_int, rx_int) = tokio::sync::mpsc::channel(1);
     let (tx_ctl, rx_ctl) = tokio::sync::mpsc::channel(1);
 
-    let session = Session::new();
-
     let server = TaskServer {
         rx_int: rx_int.into(),
         rx_ctl: rx_ctl.into(),
-        session: session.into(),
     };
 
     let client = TaskClient {
