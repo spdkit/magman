@@ -37,16 +37,7 @@ use crate::job::Node;
 
 fn create_job_for_remote_session(cmd: &str, wrk_dir: &str, node: &Node) -> Job {
     debug!("run cmd {cmd:?} on remote node: {node:?}");
-
-    let node = node.name();
-    let script = format!(
-        "#! /usr/bin/env bash
-ssh {node} << END
-cd {wrk_dir}
-{cmd}
-END
-"
-    );
+    let script = crate::job::shell_script_for_run_using_ssh(cmd, wrk_dir.as_ref(), node);
 
     Job::new(&script)
 }

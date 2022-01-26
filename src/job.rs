@@ -195,16 +195,38 @@ impl Computation {
 // [[file:../magman.note::f8672e0c][f8672e0c]]
 use tokio::io::AsyncWriteExt;
 
+pub(crate) fn shell_script_for_run_using_ssh(cmd: &str, wrk_dir: &Path, node: &Node) -> String {
+    let node_name = node.name();
+    let wrk_dir = wrk_dir.shell_escape_lossy();
+    let cmd = cmd.shell_escape();
+
+    format!(
+        "#! /usr/bin/env bash
+ssh -x -o StrictHostKeyChecking=no {node_name} << END
+cd {wrk_dir}
+{cmd}
+END
+"
+    )
+}
+
 impl Job {
     /// Submit the job and turn it into Computation.
     pub fn submit(self) -> Result<Computation> {
         Computation::try_run(self)
     }
 
-    /// Submit job on remote `node`.
-    pub fn submit_on(self, node: Node) -> Result<Computation> {
-        todo!();
-    }
+    // /// Submit job onto remote `node` using `ssh`.
+    // pub fn submit_using_ssh(self, node: &Node) -> Result<Computation> {
+    //     let node_name = node.name();
+    //     let job_name = self.name();
+    //     debug!("run job {job_name:?} on remote node: {node_name:?}");
+
+    //     let comput = Computation::try_run(self)?;
+    //     let script = shell_script_for_run_using_ssh(cmdline, wrk_dir, node);
+
+    //     todo!();
+    // }
 }
 
 fn create_run_file(session: &Computation) -> Result<()> {
@@ -236,7 +258,7 @@ impl Computation {
     }
 
     /// Wait for background command to complete.
-    pub async fn wait(&mut self) -> Result<()> {
+    async fn wait(&mut self) -> Result<()> {
         if let Some(s) = self.session.as_mut() {
             let ecode = s.child.wait().await?;
             info!("job session exited: {}", ecode);
@@ -247,12 +269,12 @@ impl Computation {
     }
 
     /// Run command in background.
-    pub async fn start(&mut self) -> Result<()> {
-        log_dbg!();
+    async fn start(&mut self) -> Result<()> {
+        let program = self.run_file();
         let wdir = self.wrk_dir();
         info!("job work direcotry: {}", wdir.display());
 
-        let mut session = tokio::process::Command::new(&self.run_file())
+        let mut session = tokio::process::Command::new(&program)
             .current_dir(wdir)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())

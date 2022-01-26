@@ -15,7 +15,7 @@ pager = "0.16"
 lazy_static = "1.3"
 structopt = "0.3"
 spdkit = {version = "0.0.19"}
-gut = {version="0.1", package="gchemol-gut"}
+gut = {version="0.2", package="gchemol-gut"}
 gosh = { version = "=0.0.30", features=["adhoc"] }
 gchemol-parser = {version = "0.3"}
 # remote runner
