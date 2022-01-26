@@ -130,12 +130,18 @@ async fn handle_client_interaction(jobs: RxJobs, node: &Node) -> Result<()> {
     let name = job.name();
     info!("Starting job {name} ...");
     let mut comput = job.submit();
-    comput.start().await?;
-    comput.wait().await?;
-    let txt = gut::fs::read_file(comput.out_file())?;
-    info!("Job {name} completed, sending stdout to the client ...");
-    if let Err(_) = tx_resp.send(txt) {
-        error!("the client has been dropped");
+    // if computation failed, we should tell the client to exit
+    match comput.run_for_output().await {
+        Ok(out) => {
+            info!("Job {name} completed, sending stdout to the client ...");
+            if let Err(_) = tx_resp.send(out) {
+                error!("the client has been dropped");
+            }
+        }
+        Err(err) => {
+            error!("Job {name:?} failed with error: {err:?}");
+            tx_resp.send("Job failure".into()).ok();
+        }
     }
 
     Ok(())

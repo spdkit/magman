@@ -227,7 +227,7 @@ impl Computation {
 
         // create run file and make sure it executable later
         if let Err(err) = create_run_file(&session) {
-            panic!("cannot create execuable run file within 2 seconds");
+            panic!("cannot create execuable run file within 2 seconds.");
         }
 
         let file = session.inp_file();
@@ -286,6 +286,14 @@ impl Computation {
         self.session = session.into();
 
         Ok(())
+    }
+
+    /// Start computation, and wait its standard output
+    pub async fn run_for_output(&mut self) -> Result<String> {
+        self.start().await?;
+        self.wait().await?;
+        let txt = gut::fs::read_file(self.out_file())?;
+        Ok(txt)
     }
 
     /// Return true if session already has been started.
