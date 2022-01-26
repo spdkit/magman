@@ -6,7 +6,6 @@ use std::path::{Path, PathBuf};
 use gosh::runner::process::Session;
 use gosh::runner::prelude::SpawnSessionExt;
 
-use serde::{Deserialize, Serialize};
 use tempfile::{tempdir, tempdir_in, TempDir};
 // 3728ca38 ends here
 
@@ -198,8 +197,13 @@ use tokio::io::AsyncWriteExt;
 
 impl Job {
     /// Submit the job and turn it into Computation.
-    pub fn submit(self) -> Computation {
-        Computation::new(self)
+    pub fn submit(self) -> Result<Computation> {
+        Computation::try_run(self)
+    }
+
+    /// Submit job on remote `node`.
+    pub fn submit_on(self, node: Node) -> Result<Computation> {
+        todo!();
     }
 }
 
@@ -213,35 +217,22 @@ fn create_run_file(session: &Computation) -> Result<()> {
 
 impl Computation {
     /// Construct `Computation` of user inputted `Job`.
-    pub fn new(job: Job) -> Self {
+    pub fn try_run(job: Job) -> Result<Self> {
         use std::fs::File;
-        use std::os::unix::fs::OpenOptionsExt;
 
         // create working directory in scratch space.
         let wdir = tempfile::TempDir::new_in(".").expect("temp dir");
-        let session = Computation {
+        let session = Self {
             job,
             wrk_dir: wdir.into(),
             session: None,
         };
 
         // create run file and make sure it executable later
-        if let Err(err) = create_run_file(&session) {
-            panic!("cannot create execuable run file within 2 seconds.");
-        }
+        create_run_file(&session)?;
+        gut::fs::write_to_file(&session.inp_file(), &session.job.input)?;
 
-        let file = session.inp_file();
-        match File::create(&session.inp_file()) {
-            Ok(mut f) => {
-                let _ = f.write_all(session.job.input.as_bytes());
-                trace!("input content wrote to: {}.", file.display());
-            }
-            Err(e) => {
-                panic!("Error while creating job input file: {}", e);
-            }
-        }
-
-        session
+        Ok(session)
     }
 
     /// Wait for background command to complete.
@@ -291,6 +282,7 @@ impl Computation {
     /// Start computation, and wait its standard output
     pub async fn run_for_output(&mut self) -> Result<String> {
         if let Err(err) = self.start().await {
+            // FIXME: need a better solution
             // try again if due to NFS file synchronous issue
             let err_msg = format!("{:?}", err);
             if err_msg.contains("Text file busy") {
@@ -348,247 +340,14 @@ impl Computation {
 }
 // extra:1 ends here
 
-// [[file:../magman.note::8f205f46][8f205f46]]
-mod db {
-    use super::*;
-
-    use bytes::Bytes;
-    use std::sync::Arc;
-    use tokio::sync::Mutex;
-
-    use impl_jobs_slotmap::JobKey;
-    use impl_jobs_slotmap::Jobs;
-
-    pub use impl_jobs_slotmap::Id;
-
-    /// A simple in-memory DB for computational jobs.
-    #[derive(Clone)]
-    pub struct Db {
-        inner: Arc<Mutex<Jobs>>,
+// [[file:../magman.note::47382715][47382715]]
+#[test]
+#[ignore]
+fn test_text_file_busy() -> Result<()> {
+    let f = "/home/ybyygu/a";
+    if let Err(err) = gut::cli::duct::cmd!(f).read() {
+        dbg!(err);
     }
-
-    impl Db {
-        /// Create an empty `Db`
-        pub fn new() -> Self {
-            Self {
-                inner: Arc::new(Mutex::new(Jobs::new())),
-            }
-        }
-
-        /// Update the job in `id` with a `new_job`. Return error if job `id`
-        /// has been started.
-        pub async fn update_job(&mut self, id: JobId, new_job: Job) -> Result<()> {
-            debug!("update_job: id={}, job={:?}", id, new_job);
-            let mut jobs = self.inner.lock().await;
-            let k = jobs.check_job(id)?;
-            if jobs[k].is_started() {
-                bail!("job {} has been started", id);
-            } else {
-                jobs[k] = new_job.submit();
-            }
-
-            Ok(())
-        }
-
-        /// Return a full list of submitted jobs
-        pub async fn get_job_list(&self) -> Vec<JobId> {
-            self.inner.lock().await.iter().map(|(k, _)| k).collect()
-        }
-
-        /// Put a new file on working directory of job `id`
-        pub async fn put_job_file(&mut self, id: JobId, file: String, body: Bytes) -> Result<()> {
-            debug!("put_job_file: id={}", id);
-
-            let jobs = self.inner.lock().await;
-            let id = jobs.check_job(id)?;
-
-            let job = &jobs[id];
-            let p = job.wrk_dir().join(&file);
-            info!("client request to put a file: {}", p.display());
-            match std::fs::File::create(p) {
-                Ok(mut f) => {
-                    f.write_all(&body).context("write job file")?;
-                    Ok(())
-                }
-                Err(e) => {
-                    bail!("create file error:\n{}", e);
-                }
-            }
-        }
-
-        /// Return the content of `file` for job `id`
-        pub async fn get_job_file(&self, id: JobId, file: &Path) -> Result<Vec<u8>> {
-            debug!("get_job_file: id={}", id);
-            let jobs = self.inner.lock().await;
-            let k = jobs.check_job(id)?;
-            let job = &jobs[k];
-            let p = job.wrk_dir().join(&file);
-            info!("client request file: {}", p.display());
-
-            let mut buffer = Vec::new();
-            let _ = std::fs::File::open(p)
-                .context("open file")?
-                .read_to_end(&mut buffer)
-                .context("read file")?;
-            Ok(buffer)
-        }
-
-        /// List files in working directory of Job `id`.
-        pub async fn list_job_files(&self, id: JobId) -> Result<Vec<PathBuf>> {
-            info!("list files for job {}", id);
-            let jobs = self.inner.lock().await;
-            let id = jobs.check_job(id)?;
-
-            let mut list = vec![];
-            let job = &jobs[id];
-            for entry in std::fs::read_dir(job.wrk_dir()).context("list dir")? {
-                if let Ok(entry) = entry {
-                    let p = entry.path();
-                    if p.is_file() {
-                        list.push(p);
-                    }
-                }
-            }
-            Ok(list)
-        }
-
-        /// Remove all jobs from `Db`. If the job has been started, the child
-        /// processes will be terminated.
-        pub async fn clear_jobs(&mut self) {
-            self.inner.lock().await.clear();
-        }
-
-        /// Remove the job `id` from `Db`. If the job has been started, it will
-        /// be terminated.
-        pub async fn delete_job(&mut self, id: JobId) -> Result<()> {
-            info!("delete_job: id={}", id);
-            self.inner.lock().await.remove(id)?;
-            Ok(())
-        }
-
-        /// Insert job into the queue.
-        pub async fn insert_job(&mut self, mut job: Job) -> JobId {
-            info!("create_job: {:?}", job);
-            let mut jobs = self.inner.lock().await;
-            let jid = jobs.insert(job.submit());
-            info!("Job {} created.", jid);
-            jid
-        }
-
-        /// Start the job in background, and wait until it finish.
-        pub async fn wait_job(&self, id: JobId) -> Result<()> {
-            info!("wait_job: id={}", id);
-            let mut jobs = self.inner.lock().await;
-            let k = jobs.check_job(id)?;
-            jobs[k].start().await?;
-            jobs[k].wait().await?;
-            Ok(())
-        }
-    }
+    Ok(())
 }
-// 8f205f46 ends here
-
-// [[file:../magman.note::*slotmap][slotmap:1]]
-mod impl_jobs_slotmap {
-    use super::*;
-
-    use bimap::BiMap;
-    use slotmap::Key;
-    use slotmap::{DefaultKey, SlotMap};
-
-    /// The job `Id` from user side
-    pub type Id = usize;
-
-    pub(super) type JobKey = DefaultKey;
-
-    pub struct Jobs {
-        inner: SlotMap<DefaultKey, Computation>,
-        mapping: BiMap<usize, JobKey>,
-    }
-
-    impl Jobs {
-        /// Create empty `Jobs`
-        pub fn new() -> Self {
-            Self {
-                inner: SlotMap::new(),
-                mapping: BiMap::new(),
-            }
-        }
-
-        /// Look for the Job with `id`, returning error if the job with `id`
-        /// does not exist.
-        pub fn check_job(&self, id: Id) -> Result<JobKey> {
-            if let Some(&k) = self.mapping.get_by_left(&id) {
-                Ok(k)
-            } else {
-                bail!("Job id not found: {}", id);
-            }
-        }
-
-        /// Insert a new Job into database, returning Id for later operations.
-        pub fn insert(&mut self, job: Computation) -> Id {
-            let k = self.inner.insert(job);
-            let n = self.mapping.len() + 1;
-            if let Err(e) = self.mapping.insert_no_overwrite(n, k) {
-                panic!("invalid {:?}", e);
-            }
-            n
-        }
-
-        /// Remove the job with `id`
-        pub fn remove(&mut self, id: Id) -> Result<()> {
-            let k = self.check_job(id)?;
-            let job = &self.inner[k];
-            if job.is_started() {
-                info!("Job {} has been started.", id);
-            }
-            // The session will be terminated on drop
-            let _ = self.inner.remove(k);
-            Ok(())
-        }
-
-        /// Remove all created jobs
-        pub fn clear(&mut self) {
-            for (k, job) in self.inner.iter() {
-                if job.is_started() {
-                    info!("job {} already started.", self.to_id(k));
-                }
-            }
-            // The session will be terminated on drop
-            self.inner.clear();
-        }
-
-        /// Iterator over a tuple of `Id` and `Job`.
-        pub fn iter(&self) -> impl Iterator<Item = (Id, &Computation)> {
-            self.inner.iter().map(move |(k, v)| (self.to_id(k), v))
-        }
-
-        fn to_id(&self, k: JobKey) -> Id {
-            if let Some(&id) = self.mapping.get_by_right(&k) {
-                id
-            } else {
-                panic!("invalid job key {:?}", k);
-            }
-        }
-    }
-
-    impl std::ops::Index<JobKey> for Jobs {
-        type Output = Computation;
-
-        fn index(&self, key: JobKey) -> &Self::Output {
-            &self.inner[key]
-        }
-    }
-
-    impl std::ops::IndexMut<JobKey> for Jobs {
-        fn index_mut(&mut self, key: JobKey) -> &mut Self::Output {
-            &mut self.inner[key]
-        }
-    }
-}
-// slotmap:1 ends here
-
-// [[file:../magman.note::dbe0de29][dbe0de29]]
-pub use self::db::Db;
-pub use self::db::Id as JobId;
-// dbe0de29 ends here
+// 47382715 ends here

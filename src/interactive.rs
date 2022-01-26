@@ -4,18 +4,12 @@
 
 // [[file:../magman.note::ae9e9435][ae9e9435]]
 use super::*;
+use crate::job::Job;
 
-use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::sync::Arc;
+use tokio::sync::oneshot;
 // ae9e9435 ends here
 
 // [[file:../magman.note::e899191b][e899191b]]
-use crate::job::Db;
-use crate::job::Job;
-use crate::job::JobId;
-use tokio::sync::oneshot;
-
 #[derive(Debug)]
 // cmd + working_dir + done?
 struct Interaction(String, String, oneshot::Sender<InteractionOutput>);
@@ -129,7 +123,7 @@ async fn handle_client_interaction(jobs: RxJobs, node: &Node) -> Result<()> {
     let job = create_job_for_remote_session(&cmd, &wrk_dir, &node);
     let name = job.name();
     info!("Starting job {name} ...");
-    let mut comput = job.submit();
+    let mut comput = job.submit()?;
     // if computation failed, we should tell the client to exit
     match comput.run_for_output().await {
         Ok(out) => {
