@@ -305,15 +305,13 @@ impl Computation {
     pub async fn run_for_output(&mut self) -> Result<String> {
         if let Err(err) = self.start().await {
             // FIXME: need a better solution
-            // try again if due to NFS file synchronous issue
+            // try again if failed due to NFS file delay issue
             let err_msg = format!("{:?}", err);
-            if err_msg.contains("Text file busy") {
-                let run_file = self.run_file();
-                warn!("run file {run_file:?} cannot be executed due to file IO issue (Text file busy)");
-                info!("Wait 1 second before next trial ...");
-                gut::utils::sleep(1.0);
-                self.start().await;
-            }
+            let run_file = self.run_file();
+            warn!("Execute file {run_file:?} failure: {err:?}");
+            info!("Wait 1 second before next trial ...");
+            gut::utils::sleep(1.0);
+            self.start().await?;
         }
         self.wait().await?;
         let txt = gut::fs::read_file(self.out_file())?;
