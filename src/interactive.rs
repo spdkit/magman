@@ -124,9 +124,8 @@ pub struct TaskServer {
 type Jobs = (String, String, oneshot::Sender<String>);
 type RxJobs = spmc::Receiver<Jobs>;
 type TxJobs = spmc::Sender<Jobs>;
-async fn handle_client_interaction(jobs: RxJobs, nodes: Nodes) -> Result<()> {
+async fn handle_client_interaction(jobs: RxJobs, node: &Node) -> Result<()> {
     let (cmd, wrk_dir, tx_resp) = jobs.recv()?;
-    let node = nodes.borrow_node()?;
     let job = create_job_for_remote_session(&cmd, &wrk_dir, &node);
     let name = job.name();
     info!("Starting job {name} ...");
@@ -138,8 +137,6 @@ async fn handle_client_interaction(jobs: RxJobs, nodes: Nodes) -> Result<()> {
     if let Err(_) = tx_resp.send(txt) {
         error!("the client has been dropped");
     }
-    // return node back
-    nodes.return_node(node)?;
 
     Ok(())
 }
@@ -161,8 +158,19 @@ mod taskserver {
                     let jobs = rx_jobs.clone();
                     let nodes = nodes.clone();
                     tokio::spawn(async move {
-                        if let Err(err) = handle_client_interaction(jobs, nodes).await {
-                            error!("found error when running job: {err:?}");
+                        match nodes.borrow_node() {
+                            Ok(node) => {
+                                if let Err(err) = handle_client_interaction(jobs, &node).await {
+                                    error!("found error when running job: {err:?}");
+                                }
+                                // return node back
+                                if let Err(err) = nodes.return_node(node) {
+                                    error!("found error when return node: {err:?}");
+                                }
+                            }
+                            Err(err) => {
+                                error!("found error when borrowing node: {err:?}");
+                            }
                         }
                     })
                 };
