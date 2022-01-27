@@ -198,7 +198,6 @@ use tokio::io::AsyncWriteExt;
 pub(crate) fn shell_script_for_run_using_ssh(cmd: &str, wrk_dir: &Path, node: &Node) -> String {
     let node_name = node.name();
     let wrk_dir = wrk_dir.shell_escape_lossy();
-    let cmd = cmd.shell_escape();
 
     format!(
         "#! /usr/bin/env bash
@@ -262,6 +261,13 @@ impl Computation {
         if let Some(s) = self.session.as_mut() {
             let ecode = s.child.wait().await?;
             info!("job session exited: {}", ecode);
+            if !ecode.success() {
+                error!("job exited unsessfully.");
+                let txt = gut::fs::read_file(self.run_file())?;
+                error!("run file:\n{txt:?}");
+                let txt = gut::fs::read_file(self.err_file())?;
+                error!("std_err:\n{txt:?}");
+            }
             Ok(())
         } else {
             bail!("Job not started yet.");
