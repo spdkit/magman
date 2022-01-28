@@ -107,17 +107,22 @@ impl Vasp {
         // use gut::cli::duct::cmd;
         use std::process::Command;
 
+        // fix cmdline relative path issue
+        let cmdline: &Path = self.cmdline.as_ref();
+        let cmdline = cmdline.canonicalize()?;
         let adir = self.job_directory(so);
         debug!("Evaluate job in {adir:?}");
         if !self.already_done(&adir) {
             self.prepare_vasp_inputs(so)?;
-            debug!("calculate new job {adir:?} using script {}", self.cmdline);
-            let o = Command::new(&self.cmdline).current_dir(&adir).output()?;
+            debug!("calculate new job {adir:?} using {cmdline:?}");
+            let o = Command::new(&cmdline)
+                .current_dir(&adir)
+                .output()
+                .with_context(|| format!("run {cmdline:?}"))?;
             if !o.status.success() {
-                warn!("vasp output: {:?}", o);
+                bail!("vasp failed with output: {o:?}");
             }
         }
-
         let oszicar = adir.join("OSZICAR");
         let energy = get_energy_from_oszicar(oszicar).with_context(|| format!("get energy for {adir:?}"))?;
         println!("job {}, energy = {}", adir.display(), energy);
