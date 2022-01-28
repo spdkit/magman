@@ -16,9 +16,6 @@ mod search;
 mod vasp;
 
 mod interactive;
-mod magorder;
-mod remote;
-mod runner;
 mod job;
 mod session;
 
@@ -27,8 +24,6 @@ pub use search::*;
 // 25e28290 ends here
 
 // [[file:../magman.note::5dec57d3][5dec57d3]]
-pub use runner::remote_enter_main;
-
 use gut::utils::sleep;
 
 /// Wait until file `f` available for max time of `timeout`.
@@ -90,10 +85,13 @@ pub fn collect_results_from_dir(d: &std::path::Path) -> Result<()> {
 }
 // 5dec57d3 ends here
 
-// [[file:../magman.note::56d334b5][56d334b5]]
-pub use magorder::enter_main as magorder_enter_main;
-pub use remote::*;
+// [[file:../magman.note::fd0d637b][fd0d637b]]
+mod remote;
+mod magorder;
+pub mod cli;
+// fd0d637b ends here
 
+// [[file:../magman.note::56d334b5][56d334b5]]
 #[cfg(feature = "adhoc")]
 /// Docs for local mods
 pub mod docs {
@@ -106,7 +104,7 @@ pub mod docs {
     }
 
     export_doc!(interactive);
-    export_doc!(remote);
+    // export_doc!(remote);
     export_doc!(job);
 }
 // 56d334b5 ends here

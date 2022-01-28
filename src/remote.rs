@@ -373,7 +373,7 @@ pub use client::Client;
 pub use server::Server;
 
 impl Client {
-    async fn interact_with_remote_session(&mut self, cmd: &str, wrk_dir: &str) -> Result<()> {
+    pub async fn interact_with_remote_session(&mut self, cmd: &str, wrk_dir: &str) -> Result<()> {
         let o = self.interact(cmd, wrk_dir).await?;
         println!("stdout from server side:\n{o}");
 
@@ -381,81 +381,3 @@ impl Client {
     }
 }
 // 0ec87ebc ends here
-
-// [[file:../magman.note::251cb9ba][251cb9ba]]
-use gut::fs::*;
-use structopt::*;
-// 251cb9ba ends here
-
-// [[file:../magman.note::512e88e7][512e88e7]]
-/// A client of a unix domain socket server for interacting with the program
-/// run in background
-#[derive(Debug, StructOpt)]
-struct ClientCli {
-    #[structopt(flatten)]
-    verbose: gut::cli::Verbosity,
-
-    /// Path to the socket file to connect
-    #[structopt(short = "u", default_value = "vasp.sock")]
-    socket_file: PathBuf,
-
-    /// Add a new remote node into server
-    #[structopt(short = "a")]
-    add_node: Option<String>,
-
-    /// The cmd to run in remote session
-    #[structopt(long, default_value = "pwd")]
-    cmd: String,
-
-    /// The working dir to run the cmd
-    #[structopt(long, default_value = ".")]
-    wrk_dir: String,
-}
-
-#[tokio::main]
-pub async fn client_enter_main() -> Result<()> {
-    let args = ClientCli::from_args();
-    args.verbose.setup_logger();
-
-    // wait a moment for socke file ready
-    let timeout = 5;
-    wait_file(&args.socket_file, timeout)?;
-
-    let mut stream = Client::connect(&args.socket_file).await?;
-    if let Some(node) = args.add_node {
-        stream.add_node(node).await?;
-    } else {
-        stream.interact_with_remote_session(&args.cmd, &args.wrk_dir).await?;
-    }
-
-    Ok(())
-}
-// 512e88e7 ends here
-
-// [[file:../magman.note::674c2404][674c2404]]
-/// A helper program for run VASP calculations
-#[derive(Debug, StructOpt)]
-struct ServerCli {
-    #[structopt(flatten)]
-    verbose: gut::cli::Verbosity,
-
-    /// Path to the socket file to bind (only valid for interactive calculation)
-    #[structopt(default_value = "magman.sock")]
-    socket_file: PathBuf,
-
-    /// The remote nodes for calculations
-    #[structopt(long, required = true, use_delimiter=true)]
-    nodes: Vec<String>,
-}
-
-#[tokio::main]
-pub async fn server_enter_main() -> Result<()> {
-    let args = ServerCli::from_args();
-    args.verbose.setup_logger();
-
-    debug!("Run VASP for interactive calculation ...");
-    Server::create(&args.socket_file)?.run_and_serve(args.nodes).await?;
-
-    Ok(())
-}
-// 674c2404 ends here

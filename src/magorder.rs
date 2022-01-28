@@ -4,6 +4,7 @@ use gut::prelude::*;
 use std::path::Path;
 
 #[test]
+#[ignore]
 fn test_magorder() -> Result<()> {
     let f = "./tests/files/jobs/100100001001/OUTCAR";
     let f = "/home/ybyygu/Workspace/Projects/structure-prediction/磁态优化/data/d8/a212ae-a1ee-4691-b604-a4623f10f400/1-20/100011010100/OUTCAR";
@@ -13,7 +14,7 @@ fn test_magorder() -> Result<()> {
     Ok(())
 }
 
-fn validate_magnetization(f: &Path) -> Result<()> {
+pub fn validate_magnetization(f: &Path) -> Result<()> {
     let f = f.canonicalize().context("get full path")?;
     let mut reader = GrepReader::try_from_path(&f)?;
     let n = reader.mark(&[r"^ magnetization \(x\)$"])?;
@@ -78,30 +79,3 @@ fn test_mag_order_from_incar() -> Result<()> {
     Ok(())
 }
 // ea64b277 ends here
-
-// [[file:../magman.note::a6ebf1ef][a6ebf1ef]]
-use std::path::PathBuf;
-use gut::cli::*;
-use gut::cli::*;
-use structopt::*;
-
-/// Predict ground-state magnetic ordering of magnetic system.
-#[derive(Debug, StructOpt)]
-struct Cli {
-    #[structopt(flatten)]
-    verbose: Verbosity,
-
-    /// The path to VASP OUTCAR
-    #[structopt()]
-    outcar: PathBuf,
-}
-
-pub fn enter_main() -> Result<()> {
-    let args = Cli::from_args();
-    args.verbose.setup_logger();
-
-    validate_magnetization(&args.outcar)?;
-
-    Ok(())
-}
-// a6ebf1ef ends here

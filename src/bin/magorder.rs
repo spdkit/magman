@@ -1,10 +1,9 @@
-// [[file:../../magman.note::4b3aa146][4b3aa146]]
+// [[file:../../magman.note::9b1def72][9b1def72]]
 use gut::prelude::*;
-use gut::cli::*;
 
-fn main() -> Result<()> {
-    magman::magorder_enter_main()?;
+fn magorder_enter_main() -> Result<()> {
+    magman::cli::magorder_enter_main()?;
 
     Ok(())
 }
-// 4b3aa146 ends here
+// 9b1def72 ends here

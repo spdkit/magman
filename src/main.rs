@@ -3,7 +3,6 @@ use std::path::PathBuf;
 
 use gut::cli::*;
 use gut::prelude::*;
-use structopt::*;
 
 /// Predict ground-state magnetic ordering of magnetic system.
 #[derive(Debug, StructOpt)]
@@ -12,23 +11,23 @@ struct Cli {
     verbose: Verbosity,
 
     /// Prints default configuration.
-    #[structopt(long = "print", short = "p")]
+    #[structopt(long = "print", short = 'p')]
     print: bool,
 
     /// List calculated items in database.
-    #[structopt(long = "list", short = "l")]
+    #[structopt(long = "list", short = 'l')]
     list: bool,
 
     /// Collect data from completed job files.
-    #[structopt(long = "collect", short = "c", parse(from_os_str))]
+    #[structopt(long = "collect", short = 'c', parse(from_os_str))]
     collect: Option<PathBuf>,
 
     /// Run genetic search.
-    #[structopt(long = "run", short = "r")]
+    #[structopt(long = "run", short = 'r')]
     run: bool,
 
     /// Specifies the number of jobs to run simultaneously
-    #[structopt(long = "jobs", short = "j", default_value = "1")]
+    #[structopt(long = "jobs", short = 'j', default_value = "1")]
     njobs: usize,
 }
 
