@@ -2,7 +2,7 @@
 use gut::prelude::*;
 
 fn main() -> Result<()> {
-    magman::cli::server_enter_main()?;
+    magman::cli::remote_enter_main()?;
 
     Ok(())
 }

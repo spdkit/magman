@@ -36,9 +36,6 @@ use crate::remote::{Client, Server};
 /// run in background
 #[derive(Debug, StructOpt)]
 struct ClientCli {
-    #[structopt(flatten)]
-    verbose: gut::cli::Verbosity,
-
     /// Path to the socket file to connect
     #[structopt(short = 'u', default_value = "vasp.sock")]
     socket_file: PathBuf,
@@ -56,50 +53,84 @@ struct ClientCli {
     wrk_dir: String,
 }
 
-#[tokio::main]
-pub async fn client_enter_main() -> Result<()> {
-    let args = ClientCli::from_args();
-    args.verbose.setup_logger();
+impl ClientCli {
+    async fn enter_main(self) -> Result<()> {
+        // wait a moment for socke file ready
+        let timeout = 5;
+        wait_file(&self.socket_file, timeout)?;
 
-    // wait a moment for socke file ready
-    let timeout = 5;
-    wait_file(&args.socket_file, timeout)?;
+        let mut stream = Client::connect(&self.socket_file).await?;
+        if let Some(node) = self.add_node {
+            stream.add_node(node).await?;
+        } else {
+            stream.interact_with_remote_session(&self.cmd, &self.wrk_dir).await?;
+        }
 
-    let mut stream = Client::connect(&args.socket_file).await?;
-    if let Some(node) = args.add_node {
-        stream.add_node(node).await?;
-    } else {
-        stream.interact_with_remote_session(&args.cmd, &args.wrk_dir).await?;
+        Ok(())
     }
-
-    Ok(())
 }
 // 512e88e7 ends here
 
 // [[file:../magman.note::674c2404][674c2404]]
-/// A helper program for run VASP calculations
+/// A helper program to run VASP calculation in remote node
 #[derive(Debug, StructOpt)]
 struct ServerCli {
-    #[structopt(flatten)]
-    verbose: gut::cli::Verbosity,
-
     /// Path to the socket file to bind (only valid for interactive calculation)
     #[structopt(default_value = "magman.sock")]
     socket_file: PathBuf,
 
     /// The remote nodes for calculations
-    #[structopt(long, required = true, use_delimiter=true)]
+    #[structopt(long, required = true, use_delimiter = true)]
     nodes: Vec<String>,
 }
 
+impl ServerCli {
+    async fn enter_main(self) -> Result<()> {
+        debug!("Run VASP for interactive calculation ...");
+        Server::create(&self.socket_file)?.run_and_serve(self.nodes).await?;
+
+        Ok(())
+    }
+}
+// 674c2404 ends here
+
+// [[file:../magman.note::5f9971ad][5f9971ad]]
+#[derive(Parser)]
+struct Cli {
+    #[clap(flatten)]
+    verbose: Verbosity,
+
+    #[clap(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    Client {
+        #[clap(flatten)]
+        client: ClientCli,
+    },
+    Server {
+        #[clap(flatten)]
+        server: ServerCli,
+    },
+}
+
 #[tokio::main]
-pub async fn server_enter_main() -> Result<()> {
-    let args = ServerCli::from_args();
+pub async fn remote_enter_main() -> Result<()> {
+    let args = Cli::from_args();
     args.verbose.setup_logger();
 
-    debug!("Run VASP for interactive calculation ...");
-    Server::create(&args.socket_file)?.run_and_serve(args.nodes).await?;
+    match args.command {
+        Commands::Client { client } => {
+            client.enter_main().await?;
+        }
+        Commands::Server { server } => {
+            debug!("Run VASP for interactive calculation ...");
+            server.enter_main().await?;
+        }
+    }
 
     Ok(())
 }
-// 674c2404 ends here
+// 5f9971ad ends here

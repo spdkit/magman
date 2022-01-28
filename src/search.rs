@@ -17,10 +17,6 @@ impl EvaluateObjectiveValue<MagGenome> for MagIndividual {
     fn evaluate(&self, genome: &MagGenome) -> f64 {
         let key = genome.to_string();
         evaluate_magmom(genome).unwrap_or_else(|e| panic!("evaluation failed with error: {:?}", e))
-        // match evaluate_magmom(genome) {
-        //     Ok(o) => o,
-        //     Err(e) => panic!("evaluation failed with error: {:?}", e),
-        // }
     }
 }
 

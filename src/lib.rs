@@ -17,7 +17,6 @@ mod vasp;
 
 mod interactive;
 mod job;
-mod session;
 
 pub use config::*;
 pub use search::*;
