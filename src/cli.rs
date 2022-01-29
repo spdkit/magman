@@ -50,7 +50,7 @@ struct ClientCli {
 
     /// The working dir to run the cmd
     #[structopt(long, default_value = ".")]
-    wrk_dir: String,
+    wrk_dir: PathBuf,
 }
 
 impl ClientCli {
@@ -63,7 +63,9 @@ impl ClientCli {
         if let Some(node) = self.add_node {
             stream.add_node(node).await?;
         } else {
-            stream.interact_with_remote_session(&self.cmd, &self.wrk_dir).await?;
+            let wrk_dir = self.wrk_dir.canonicalize()?;
+            let wrk_dir = wrk_dir.to_string_lossy();
+            stream.interact_with_remote_session(&self.cmd, &wrk_dir).await?;
         }
 
         Ok(())
