@@ -46,10 +46,45 @@ fn evaluate_magmom(indv: &MagGenome) -> Result<f64> {
 }
 // c0ca7449 ends here
 
-// [[file:../magman.note::*core][core:1]]
+// [[file:../magman.note::809ad587][809ad587]]
+use std::path::PathBuf;
+
+pub struct StopHandler {
+    stop_file: PathBuf,
+}
+
+impl StopHandler {
+    pub fn new() -> Self {
+        let stop_file = PathBuf::from("STOP");
+        if stop_file.exists() {
+            debug!("removing existing STOP file ...");
+            let _ = std::fs::remove_file(&stop_file);
+        }
+        Self {
+            stop_file: PathBuf::from("STOP"),
+        }
+    }
+
+    fn is_interrupted(&self) -> bool {
+        self.stop_file.exists()
+    }
+
+    /// Return error if finding a STOP file.
+    pub fn handle_user_interruption(&self) -> Result<()> {
+        if self.is_interrupted() {
+            bail!("found stop file, stopping now ...");
+        } else {
+            Ok(())
+        }
+    }
+}
+// 809ad587 ends here
+
+// [[file:../magman.note::2bff375c][2bff375c]]
 use std::collections::HashMap;
 use std::sync::Mutex;
 
+use gosh::runner::stop::StopFileHandler;
 use spdkit::operators::selection::StochasticUniversalSampling as SusSelection;
 use spdkit::operators::selection::TournamentSelection;
 use spdkit::operators::variation::TriadicCrossOver;
@@ -76,11 +111,8 @@ pub fn genetic_search() -> Result<()> {
         .with_selector(SusSelection::new(3));
 
     // setup the algorithm
-    let algo = spdkit::EvolutionAlgorithm::new(
-        breeder,
-        spdkit::Survivor::create().remove_duplicates(true),
-    );
-
+    let algo = spdkit::EvolutionAlgorithm::new(breeder, spdkit::Survivor::create().remove_duplicates(true));
+    let stop = StopFileHandler::new();
     // FIXMEFIXMEFIXME
     let seeds = build_initial_genomes(config.population_size, length);
     for g in spdkit::Engine::create()
@@ -92,11 +124,7 @@ pub fn genetic_search() -> Result<()> {
     {
         let generation = g?;
         generation.summary();
-        let energy = generation
-            .population
-            .best_member()
-            .unwrap()
-            .objective_value();
+        let energy = generation.population.best_member().unwrap().objective_value();
 
         if let Some(target_energy) = config.target_energy {
             if energy < target_energy {
@@ -104,6 +132,7 @@ pub fn genetic_search() -> Result<()> {
                 break;
             }
         }
+        stop.handle_user_interruption()?;
 
         // population convergence
         // let members: Vec<_> = generation.population.members().collect();
@@ -142,4 +171,4 @@ fn random_binary(length: usize) -> Binary {
     let list: Vec<_> = (0..length).map(|_| rng.gen()).collect();
     Binary::new(list)
 }
-// core:1 ends here
+// 2bff375c ends here

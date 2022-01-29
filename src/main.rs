@@ -49,7 +49,9 @@ fn main() -> Result<()> {
     }
 
     if args.run {
-        magman::genetic_search();
+        if let Err(err) = magman::genetic_search() {
+            bail!("genetic search failure: {err:?}");
+        }
     } else if args.list {
         // setup a pager like `less` cmd
         pager::Pager::with_pager("less").setup();
