@@ -34,18 +34,33 @@ use crate::remote::{Client, Server};
 // [[file:../magman.note::512e88e7][512e88e7]]
 /// A client of a unix domain socket server for interacting with the program
 /// run in background
-#[derive(Debug, StructOpt)]
+#[derive(StructOpt)]
 struct ClientCli {
     /// Path to the socket file to connect
     #[structopt(short = 'u', default_value = "vasp.sock")]
     socket_file: PathBuf,
 
-    /// Add a new remote node into server
-    #[structopt(short)]
-    add_node: Option<String>,
+    #[clap(subcommand)]
+    action: ClientAction,
+}
 
+#[derive(Subcommand)]
+enum ClientAction {
+    Run {
+        #[clap(flatten)]
+        run: ClientRun,
+    },
+    /// Request server to add a new node for remote computation.
+    AddNode {
+        /// The node to be added into node list for remote computation.
+        node: String,
+    },
+}
+
+#[derive(StructOpt)]
+/// request server to run a cmd
+struct ClientRun {
     /// The cmd to run in remote session
-    #[structopt(long, default_value = "pwd")]
     cmd: String,
 
     /// The working dir to run the cmd
@@ -60,12 +75,15 @@ impl ClientCli {
         wait_file(&self.socket_file, timeout)?;
 
         let mut stream = Client::connect(&self.socket_file).await?;
-        if let Some(node) = self.add_node {
-            stream.add_node(node).await?;
-        } else {
-            let wrk_dir = self.wrk_dir.canonicalize()?;
-            let wrk_dir = wrk_dir.to_string_lossy();
-            stream.interact_with_remote_session(&self.cmd, &wrk_dir).await?;
+        match self.action {
+            ClientAction::Run { run } => {
+                let wrk_dir = run.wrk_dir.canonicalize()?;
+                let wrk_dir = wrk_dir.to_string_lossy();
+                stream.interact_with_remote_session(&run.cmd, &wrk_dir).await?;
+            }
+            ClientAction::AddNode { node } => {
+                stream.add_node(node).await?;
+            }
         }
 
         Ok(())
