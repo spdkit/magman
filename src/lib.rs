@@ -17,6 +17,7 @@ mod vasp;
 
 mod interactive;
 mod job;
+mod restful;
 
 pub use config::*;
 pub use search::*;

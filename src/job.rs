@@ -9,6 +9,22 @@ use gosh::runner::prelude::SpawnSessionExt;
 use tempfile::{tempdir, tempdir_in, TempDir};
 // 3728ca38 ends here
 
+// [[file:../magman.note::e2dc7cb8][e2dc7cb8]]
+pub trait Compute {
+    fn wait_for_output(&mut self) -> Result<String>;
+
+    fn try_pause(&mut self) -> Result<()> {
+        todo!()
+    }
+    fn try_terminate(&mut self) -> Result<()> {
+        todo!()
+    }
+    fn try_resume(&mut self) -> Result<()> {
+        todo!()
+    }
+}
+// e2dc7cb8 ends here
+
 // [[file:../magman.note::50e6ed5a][50e6ed5a]]
 /// Represents a computational job inputted by user.
 #[derive(Debug, Deserialize, Serialize)]

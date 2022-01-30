@@ -4,7 +4,8 @@
 
 // [[file:../magman.note::ae9e9435][ae9e9435]]
 use super::*;
-use crate::job::Job;
+// use crate::job::Job;
+use crate::restful::Job;
 
 use tokio::sync::oneshot;
 // ae9e9435 ends here
@@ -35,9 +36,21 @@ type TxControl = tokio::sync::mpsc::Sender<Control>;
 // [[file:../magman.note::de5d8bd5][de5d8bd5]]
 use crate::job::Node;
 
+fn shell_script_for_job(cmd: &str, wrk_dir: &std::path::Path, node: &Node) -> String {
+    let node_name = node.name();
+    let wrk_dir = wrk_dir.shell_escape_lossy();
+
+    format!(
+        "#! /usr/bin/env bash
+cd {wrk_dir}
+{cmd}
+"
+    )
+}
+
 fn create_job_for_remote_session(cmd: &str, wrk_dir: &str, node: &Node) -> Job {
     debug!("run cmd {cmd:?} on remote node: {node:?}");
-    let script = crate::job::shell_script_for_run_using_ssh(cmd, wrk_dir.as_ref(), node);
+    let script = shell_script_for_job(cmd, wrk_dir.as_ref(), node);
 
     Job::new(&script)
 }
@@ -113,10 +126,12 @@ async fn handle_client_interaction(jobs: RxJobs, node: &Node) -> Result<()> {
     let (cmd, wrk_dir, tx_resp) = jobs.recv()?;
     let job = create_job_for_remote_session(&cmd, &wrk_dir, &node);
     let name = job.name();
-    info!("Starting job {name} ...");
-    let mut comput = job.submit()?;
+    info!("Start computing job {name} ...");
+    // FIXME: remote or local submission, make it selectable
+    // let mut comput = job.submit()?;
+    let mut comput = job.submit_remote(node.name())?;
     // if computation failed, we should tell the client to exit
-    match comput.run_for_output().await {
+    match comput.wait_for_output().await {
         Ok(out) => {
             info!("Job {name} completed, sending stdout to the client ...");
             if let Err(_) = tx_resp.send(out) {

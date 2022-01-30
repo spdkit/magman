@@ -154,3 +154,7 @@ pub async fn remote_enter_main() -> Result<()> {
     Ok(())
 }
 // 5f9971ad ends here
+
+// [[file:../magman.note::bf91d369][bf91d369]]
+pub use crate::restful::cli::*;
+// bf91d369 ends here
