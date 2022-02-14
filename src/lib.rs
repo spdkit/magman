@@ -15,10 +15,6 @@ mod magmom;
 mod search;
 mod vasp;
 
-mod interactive;
-mod job;
-mod restful;
-
 pub use config::*;
 pub use search::*;
 // 25e28290 ends here
@@ -86,7 +82,6 @@ pub fn collect_results_from_dir(d: &std::path::Path) -> Result<()> {
 // 5dec57d3 ends here
 
 // [[file:../magman.note::fd0d637b][fd0d637b]]
-mod remote;
 mod magorder;
 pub mod cli;
 // fd0d637b ends here
@@ -103,8 +98,8 @@ pub mod docs {
         };
     }
 
-    export_doc!(interactive);
+    // export_doc!(interactive);
     // export_doc!(remote);
-    export_doc!(job);
+    // export_doc!(job);
 }
 // 56d334b5 ends here
