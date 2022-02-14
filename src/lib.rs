@@ -14,9 +14,6 @@ mod config;
 mod magmom;
 mod search;
 mod vasp;
-
-pub use config::*;
-pub use search::*;
 // 25e28290 ends here
 
 // [[file:../magman.note::5dec57d3][5dec57d3]]
