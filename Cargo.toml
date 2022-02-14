@@ -1,7 +1,7 @@
 # [[file:magman.note::66f2d490][66f2d490]]
 [package]
 name = "magman"
-version = "0.0.18"
+version = "0.0.19"
 edition = "2021"
 authors = ["Wenping Guo <ybyygu@gmail.com>"]
 
@@ -18,18 +18,8 @@ gut = {version="0.2", package="gchemol-gut"}
 gosh = { version = "=0.0.30", features=["adhoc"] }
 gchemol-parser = {version = "0.3"}
 # remote runner
-bytes = "1"
-tokio = { version = "1", features = ["full"] }
-tokio-util = "0.6"
 clap = { version = "3.0.10", features = ["derive"] }
 tempfile = "3.3"
-slotmap = { version = "1.0", features = ["serde"] }
-bimap = { version = "0.6", features = ["serde"]}
-# https://docs.rs/spmc/latest/spmc/
-spmc = "0.3.0"
-crossbeam-channel = "0.5"
-warp = "0.3"
-reqwest = { version="0.11", default-features = false, features=["json", "blocking", "rustls-tls"]}
 
 [dev-dependencies]
 
