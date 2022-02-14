@@ -6,6 +6,7 @@ use gut::prelude::*;
 
 /// Predict ground-state magnetic ordering of magnetic system.
 #[derive(Debug, StructOpt)]
+#[clap(author, version, about)]
 struct Cli {
     #[structopt(flatten)]
     verbose: Verbosity,
