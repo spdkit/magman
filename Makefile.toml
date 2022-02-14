@@ -1,0 +1,15 @@
+[tasks.i]
+#command = "env"
+script = '''#! /usr/bin/env bash
+set -xe
+cargo im --offline --root=releases/${CARGO_MAKE_PROJECT_VERSION} --no-track --bins --force
+upx releases/${CARGO_MAKE_PROJECT_VERSION}/bin/*
+'''
+
+[tasks.z]
+dependencies = ["i"]
+script = '''scp releases/${CARGO_MAKE_PROJECT_VERSION}/bin/* rongzhi:bin/ '''
+
+[tasks.h]
+dependencies = ["i"]
+script = '''scp releases/${CARGO_MAKE_PROJECT_VERSION}/bin/* hpc44:bin/ '''
