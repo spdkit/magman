@@ -82,7 +82,7 @@ pub fn collect_results_from_dir(d: &std::path::Path) -> Result<()> {
 // 5dec57d3 ends here
 
 // [[file:../magman.note::fd0d637b][fd0d637b]]
-mod magorder;
+// mod magorder;
 pub mod cli;
 // fd0d637b ends here
 
